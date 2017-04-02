@@ -5,7 +5,7 @@
 
 //#define DEBUG_BOARD_COLOR
 
-class Piece : hypervector<bool, 2> {
+class Piece : public hypervector<bool, 2> {
 public:
   Piece()
     : hypervector<bool, 2>() {
@@ -54,6 +54,10 @@ public:
     return Piece(2, 2, id, 3U);
   }
 
+  bool IsBlockEmpty(size_t posX, size_t posY) const {
+    return !this->at(posX, posY);
+  }
+
   unsigned int GetId() const {
     return m_id;
   }
@@ -84,8 +88,8 @@ public:
   }
 
 private:
-  Piece(size_type countX, size_type countY, unsigned int id, unsigned int rotationCount = 0U)
-    : hypervector<bool, 2>(countX, countY, true)
+  Piece(size_t sizeX, size_t sizeY, unsigned int id, unsigned int rotationCount = 0U)
+    : hypervector<bool, 2>(sizeX, sizeY, true)
     , m_id(id)
     , m_rotationCount(rotationCount) {
   };
