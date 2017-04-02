@@ -3,53 +3,59 @@
 #include <string>
 #include "../hypervector/hypervector.h"
 
+//#define DEBUG_BOARD_COLOR
+
 class Piece : hypervector<bool, 2> {
 public:
   Piece()
     : hypervector<bool, 2>() {
   };
 
-  static Piece CreatePieceI() {
-    return Piece(1, 4, 2U);
+  static Piece CreatePieceI(unsigned int id) {
+    return Piece(1, 4, id, 2U);
   }
 
-  static Piece CreatePieceL() {
-    Piece piece(2, 3);
+  static Piece CreatePieceL(unsigned int id) {
+    Piece piece(2, 3, id);
     piece.at(1, 0) = false;
     piece.at(1, 1) = false;
     return piece;
   }
 
-  static Piece CreatePieceJ() {
-    Piece piece(2, 3);
+  static Piece CreatePieceJ(unsigned int id) {
+    Piece piece(2, 3, id);
     piece.at(0, 0) = false;
     piece.at(0, 1) = false;
     return piece;
   }
 
-  static Piece CreatePieceT() {
-    Piece piece(3, 2);
+  static Piece CreatePieceT(unsigned int id) {
+    Piece piece(3, 2, id);
     piece.at(0, 1) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
-  static Piece CreatePieceZ() {
-    Piece piece(3, 2, 2U);
+  static Piece CreatePieceZ(unsigned int id) {
+    Piece piece(3, 2, id, 2U);
     piece.at(0, 1) = false;
     piece.at(2, 0) = false;
     return piece;
   }
 
-  static Piece CreatePieceS() {
-    Piece piece(3, 2, 2U);
+  static Piece CreatePieceS(unsigned int id) {
+    Piece piece(3, 2, id, 2U);
     piece.at(0, 0) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
-  static Piece CreatePieceO() {
-    return Piece(2, 2, 3U);
+  static Piece CreatePieceO(unsigned int id) {
+    return Piece(2, 2, id, 3U);
+  }
+
+  unsigned int GetId() const {
+    return m_id;
   }
 
   bool RotateRight() {
@@ -58,7 +64,7 @@ public:
     }
 
     // transpose
-    Piece transposed(this->size(1), this->size(0));
+    Piece transposed(this->size(1), this->size(0), 0U);
     for(size_t x = 0; x < this->size(0); ++x) {
       for(size_t y = 0; y < this->size(1); ++y) {
         transposed.at(y, x) = this->at(x, y);
@@ -78,12 +84,14 @@ public:
   }
 
 private:
-  Piece(size_type countX, size_type countY, unsigned int rotationCount = 0U)
+  Piece(size_type countX, size_type countY, unsigned int id, unsigned int rotationCount = 0U)
     : hypervector<bool, 2>(countX, countY, true)
+    , m_id(id)
     , m_rotationCount(rotationCount) {
   };
 
 private:
+  unsigned int m_id;
   unsigned int m_rotationCount;
 };
 
@@ -173,25 +181,25 @@ int main(int argc, char **argv) {
   unsigned int piecesCountO = 0;
   std::vector<Piece> pieces;
   for(unsigned int i = 0; i < piecesCountI; ++i) {
-    pieces.emplace_back(Piece::CreatePieceI());
+    pieces.emplace_back(Piece::CreatePieceI(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountL; ++i) {
-    pieces.emplace_back(Piece::CreatePieceL());
+    pieces.emplace_back(Piece::CreatePieceL(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountJ; ++i) {
-    pieces.emplace_back(Piece::CreatePieceJ());
+    pieces.emplace_back(Piece::CreatePieceJ(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountT; ++i) {
-    pieces.emplace_back(Piece::CreatePieceT());
+    pieces.emplace_back(Piece::CreatePieceT(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountZ; ++i) {
-    pieces.emplace_back(Piece::CreatePieceZ());
+    pieces.emplace_back(Piece::CreatePieceZ(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountS; ++i) {
-    pieces.emplace_back(Piece::CreatePieceS());
+    pieces.emplace_back(Piece::CreatePieceS(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < piecesCountO; ++i) {
-    pieces.emplace_back(Piece::CreatePieceO());
+    pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
   }
 
   // cleanup
