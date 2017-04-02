@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <string>
 #include "../hypervector/hypervector.h"
 
 class Piece : hypervector<bool, 2> {
@@ -86,32 +87,84 @@ private:
   unsigned int m_rotationCount;
 };
 
-using Board = hypervector<char, 2>;
+class Color {
+public:
+  Color()
+    : m_colorCode(41U) {
+  }
+
+  Color(Color const &other) = default;
+
+  Color &operator++() {
+    Increment();
+    return *this;
+  }
+
+  Color operator++(int) {
+    Color const tmp(*this);
+    Increment();
+    return tmp;
+  }
+
+  friend std::ostream &operator<<(std::ostream &os, Color const &color);
+
+private:
+  void Increment() {
+    ++m_colorCode;
+    Limit();
+  }
+
+  void Limit() {
+    if(m_colorCode > 107U) {
+      m_colorCode = 41U;
+    } else if((m_colorCode > 47U) && (m_colorCode < 100U)) {
+      m_colorCode = 100U;
+    }
+  }
+
+private:
+  unsigned int m_colorCode;
+};
+
+std::ostream &operator<<(std::ostream &os, Color const &color) {
+  auto const str = std::to_string(color.m_colorCode);
+  os << "\e[" + str + "m";
+  return os;
+}
+
+using Board = hypervector<Color, 2>;
 
 std::ostream &operator<<(std::ostream &os, Board const &board) {
   for(size_t y = 0; y < board.size(1); ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
       std::cout << board.at(x, y);
+      std::cout << ' ';
     }
     std::cout << "\n";
   }
   return os;
 }
 
+void ResetTerminalColor() {
+  std::cout << "\x1B[0m";
+}
+
 int main(int argc, char **argv) {
+  // create Board
   size_t dimX = 4;
   size_t dimY = 3;
-  Board board(dimX, dimY, ' ');
-  std::cout << board << "\n";
+  Board board(dimX, dimY);
 
-  char num = '0';
+  // test Board print
+  Color color;
   for(size_t y = 0; y < board.size(1); ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
-      board.at(x, y) = num++;
+      board.at(x, y) = color++;
     }
   }
   std::cout << board << "\n";
 
+  // create Pieces
   unsigned int piecesCountI = 0;
   unsigned int piecesCountL = 1;
   unsigned int piecesCountJ = 0;
@@ -142,6 +195,7 @@ int main(int argc, char **argv) {
     pieces.emplace_back(Piece::CreatePieceO());
   }
 
-
+  // cleanup
+  ResetTerminalColor();
 }
 
