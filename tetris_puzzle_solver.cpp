@@ -9,49 +9,53 @@ public:
   };
 
   static Piece CreatePieceI() {
-    return Piece(1, 4, true);
+    return Piece(1, 4, 2U);
   }
 
   static Piece CreatePieceL() {
-    Piece piece(2, 3, true);
+    Piece piece(2, 3);
     piece.at(1, 0) = false;
     piece.at(1, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceJ() {
-    Piece piece(2, 3, true);
+    Piece piece(2, 3);
     piece.at(0, 0) = false;
     piece.at(0, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceT() {
-    Piece piece(3, 2, true);
+    Piece piece(3, 2);
     piece.at(0, 1) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceZ() {
-    Piece piece(3, 2, true);
+    Piece piece(3, 2, 2U);
     piece.at(0, 1) = false;
     piece.at(2, 0) = false;
     return piece;
   }
 
   static Piece CreatePieceS() {
-    Piece piece(3, 2, true);
+    Piece piece(3, 2, 2U);
     piece.at(0, 0) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceO() {
-    return Piece(2, 2, true);
+    return Piece(2, 2, 3U);
   }
 
-  void RotateRight() {
+  bool RotateRight() {
+    if(m_rotationCount >= 3U) {
+      return false;
+    }
+
     // transpose
     Piece transposed(this->size(1), this->size(0));
     for(size_t x = 0; x < this->size(0); ++x) {
@@ -68,16 +72,18 @@ public:
         this->at(x, y) = transposed.at(this->size(0) - x - 1, y);
       }
     }
+
+    return true;
   }
 
 private:
-  Piece(size_type countX, size_type countY)
-    : hypervector<bool, 2>(countX, countY) {
+  Piece(size_type countX, size_type countY, unsigned int rotationCount = 0U)
+    : hypervector<bool, 2>(countX, countY, true)
+    , m_rotationCount(rotationCount) {
   };
 
-  Piece(size_type countX, size_type countY, bool value)
-    : hypervector<bool, 2>(countX, countY, bool(value)) { // ???
-  };
+private:
+  unsigned int m_rotationCount;
 };
 
 using Board = hypervector<char, 2>;
