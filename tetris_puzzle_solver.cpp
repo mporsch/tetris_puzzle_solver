@@ -90,36 +90,33 @@ private:
 class Color {
 public:
   Color()
-    : m_colorCode(41U) {
+    : m_colorCode(49U) {
+  }
+
+  static Color FromId(unsigned int id) {
+    static std::vector<unsigned int> colorLut = GetColorLut();
+
+    Color ret;
+    ret.m_colorCode = colorLut.at(id % colorLut.size());
+    return ret;
   }
 
   Color(Color const &other) = default;
 
-  Color &operator++() {
-    Increment();
-    return *this;
-  }
-
-  Color operator++(int) {
-    Color const tmp(*this);
-    Increment();
-    return tmp;
-  }
-
   friend std::ostream &operator<<(std::ostream &os, Color const &color);
 
 private:
-  void Increment() {
-    ++m_colorCode;
-    Limit();
-  }
+  static std::vector<unsigned int> GetColorLut() {
+    std::vector<unsigned int> ret;
 
-  void Limit() {
-    if(m_colorCode > 107U) {
-      m_colorCode = 41U;
-    } else if((m_colorCode > 47U) && (m_colorCode < 100U)) {
-      m_colorCode = 100U;
+    for(unsigned int i = 41U; i < 48U; ++i) {
+      ret.emplace_back(i);
     }
+    for(unsigned int i = 100U; i < 107U; ++i) {
+      ret.emplace_back(i);
+    }
+
+    return ret;
   }
 
 private:
@@ -138,7 +135,7 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
   for(size_t y = 0; y < board.size(1); ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
       std::cout << board.at(x, y);
-      std::cout << ' ';
+      std::cout << ' ' << ' ';
     }
     std::cout << "\n";
   }
@@ -155,14 +152,16 @@ int main(int argc, char **argv) {
   size_t dimY = 3;
   Board board(dimX, dimY);
 
+#ifdef DEBUG_BOARD_COLOR
   // test Board print
-  Color color;
+  unsigned int id = 0;
   for(size_t y = 0; y < board.size(1); ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
-      board.at(x, y) = color++;
+      board.at(x, y) = Color::FromId(id++);
+      std::cout << board << "\n";
     }
   }
-  std::cout << board << "\n";
+#endif
 
   // create Pieces
   unsigned int piecesCountI = 0;
