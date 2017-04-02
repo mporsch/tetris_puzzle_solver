@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <csignal>
 #include "../hypervector/hypervector.h"
 
 //#define DEBUG_BOARD_COLOR
@@ -255,7 +256,18 @@ void ResetTerminalColor() {
   std::cout << "\x1B[0m";
 }
 
+void Cleanup(int) {
+  ResetTerminalColor();
+  exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char **argv) {
+  // set up Ctrl-C handler
+  if(std::signal(SIGINT, Cleanup)) {
+    std::cerr << "Failed to register signal handler\n";
+    return EXIT_FAILURE;
+  }
+
   // create Board
   size_t boardWidth = 4;
   size_t boardHeight = 5;
@@ -308,7 +320,7 @@ int main(int argc, char **argv) {
     std::cout << "No solution found\n";
   }
 
-  // cleanup
-  ResetTerminalColor();
+  Cleanup(0);
+  return EXIT_SUCCESS;
 }
 
