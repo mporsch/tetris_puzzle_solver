@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include "../hypervector/hypervector.h"
 
 //#define DEBUG_BOARD_COLOR
@@ -117,6 +118,14 @@ public:
 
   Color(Color const &other) = default;
 
+  bool operator==(Color const &other) const {
+    return (m_colorCode == other.m_colorCode);
+  }
+
+  bool operator!=(Color const &other) const {
+    return (m_colorCode != other.m_colorCode);
+  }
+
   friend std::ostream &operator<<(std::ostream &os, Color const &color);
 
 private:
@@ -143,7 +152,59 @@ std::ostream &operator<<(std::ostream &os, Color const &color) {
   return os;
 }
 
-using Board = hypervector<Color, 2>;
+class Board : public hypervector<Color, 2> {
+public:
+  Board(size_t sizeX, size_t sizeY)
+    : hypervector<Color, 2>(sizeX, sizeY) {
+  }
+
+  Board(Board const &other) = default;
+
+  bool MayInsert(Piece const &piece, size_t posX, size_t posY) const {
+    if(posX + piece.size(0) > this->size(0)) {
+      return false;
+    }
+    if(posY + piece.size(1) > this->size(1)) {
+      return false;
+    }
+
+    for(size_t y = 0; y < piece.size(1); ++y) {
+      for(size_t x = 0; x < piece.size(0); ++x) {
+        if(!piece.IsBlockEmpty(x, y) && !IsBlockEmpty(posX + x, posY + y)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  Board Insert(Piece const &piece, size_t posX, size_t posY) const {
+    Board ret(*this);
+
+    for(size_t y = 0; y < piece.size(1); ++y) {
+      for(size_t x = 0; x < piece.size(0); ++x) {
+        if(!piece.IsBlockEmpty(x, y)) {
+          ret.at(posX + x, posY + y) = Color::FromId(piece.GetId());
+        }
+      }
+    }
+
+    return ret;
+  }
+
+  bool IsSolved() const {
+    return std::all_of(this->begin(), this->end(),
+      [](Color const &color) -> bool {
+        return (color != Color());
+      });
+  }
+
+private:
+  bool IsBlockEmpty(size_t posX, size_t posY) const {
+    return (this->at(posX, posY) == Color());
+  }
+};
 
 std::ostream &operator<<(std::ostream &os, Board const &board) {
   for(size_t y = 0; y < board.size(1); ++y) {
