@@ -65,6 +65,8 @@ public:
   bool RotateRight() {
     if(m_rotationCount >= 3U) {
       return false;
+    } else {
+      ++m_rotationCount;
     }
 
     // transpose
