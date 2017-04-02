@@ -104,7 +104,7 @@ private:
 class Color {
 public:
   Color()
-    : m_colorCode(49U) {
+    : m_colorCode(40U) { // black as default
   }
 
   static Color FromId(unsigned int id) {
@@ -175,6 +175,7 @@ int main(int argc, char **argv) {
       std::cout << board << "\n";
     }
   }
+  board = Board(boardWidth, boardHeight);
 #endif
 
   // create Pieces
