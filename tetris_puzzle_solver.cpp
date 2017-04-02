@@ -5,6 +5,7 @@
 #include "../hypervector/hypervector.h"
 
 //#define DEBUG_BOARD_COLOR
+//#define DEBUG_SOLVER_STEPS
 
 class Piece : public hypervector<bool, 2> {
 public:
@@ -217,15 +218,48 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
   return os;
 }
 
+bool Solve(Board const &board, std::vector<Piece> pieces) {
+  if(board.IsSolved() || pieces.empty()) {
+    std::cout << board << "\n";
+    return true;
+  } else {
+#ifdef DEBUG_SOLVER_STEPS
+    std::cout << board << "\n";
+#endif
+  }
+
+  for(size_t piecesOrder = 0; piecesOrder < pieces.size(); ++piecesOrder) {
+    auto piece = pieces.at(0);
+    do {
+      for(size_t y = 0; y < board.size(1); ++y) {
+        for(size_t x = 0; x < board.size(0); ++x) {
+          if(board.MayInsert(piece, x, y)) {
+            // next iteration with updated board and pieces list
+            if(Solve(board.Insert(piece, x, y),
+                     std::vector<Piece>(std::next(pieces.begin()), pieces.end()))) {
+              return true;
+            }
+          }
+        }
+      }
+    } while(piece.RotateRight()); // try again with this piece rotated
+
+    // try another order of pieces
+    std::rotate(pieces.begin(), std::next(pieces.begin()), pieces.end());
+  }
+
+  return false;
+}
+
 void ResetTerminalColor() {
   std::cout << "\x1B[0m";
 }
 
 int main(int argc, char **argv) {
   // create Board
-  size_t dimX = 4;
-  size_t dimY = 3;
-  Board board(dimX, dimY);
+  size_t boardWidth = 4;
+  size_t boardHeight = 5;
+  Board board(boardWidth, boardHeight);
 
 #ifdef DEBUG_BOARD_COLOR
   // test Board print
@@ -244,8 +278,8 @@ int main(int argc, char **argv) {
   unsigned int piecesCountL = 1;
   unsigned int piecesCountJ = 0;
   unsigned int piecesCountT = 2;
-  unsigned int piecesCountZ = 0;
-  unsigned int piecesCountS = 0;
+  unsigned int piecesCountZ = 1;
+  unsigned int piecesCountS = 1;
   unsigned int piecesCountO = 0;
   std::vector<Piece> pieces;
   for(unsigned int i = 0; i < piecesCountI; ++i) {
@@ -268,6 +302,10 @@ int main(int argc, char **argv) {
   }
   for(unsigned int i = 0; i < piecesCountO; ++i) {
     pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
+  }
+
+  if(!Solve(board, pieces)) {
+    std::cout << "No solution found\n";
   }
 
   // cleanup
