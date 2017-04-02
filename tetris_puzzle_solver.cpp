@@ -220,9 +220,9 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
 }
 
 bool Solve(Board const &board, std::vector<Piece> pieces) {
-  if(board.IsSolved() || pieces.empty()) {
+  if(pieces.empty()) {
     std::cout << board << "\n";
-    return true;
+    return board.IsSolved();
   } else {
 #ifdef DEBUG_SOLVER_STEPS
     std::cout << board << "\n";
@@ -317,7 +317,7 @@ int main(int argc, char **argv) {
   }
 
   if(!Solve(board, pieces)) {
-    std::cout << "No solution found\n";
+    std::cout << "No exact solution found\n";
   }
 
   Cleanup(0);
