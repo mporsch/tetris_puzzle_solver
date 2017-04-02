@@ -3,6 +3,8 @@
 #include <string>
 #include <algorithm>
 #include <csignal>
+#include <sstream>
+#include <limits>
 #include "../hypervector/hypervector.h"
 
 //#define DEBUG_BOARD_COLOR
@@ -252,6 +254,95 @@ bool Solve(Board const &board, std::vector<Piece> pieces) {
   return false;
 }
 
+struct CommandLineArguments {
+  size_t boardWidth;
+  size_t boardHeight;
+  unsigned int piecesCountI;
+  unsigned int piecesCountL;
+  unsigned int piecesCountJ;
+  unsigned int piecesCountT;
+  unsigned int piecesCountZ;
+  unsigned int piecesCountS;
+  unsigned int piecesCountO;
+
+  CommandLineArguments(int argc, char **argv)
+  try : piecesCountI(0U)
+      , piecesCountL(0U)
+      , piecesCountJ(0U)
+      , piecesCountT(0U)
+      , piecesCountZ(0U)
+      , piecesCountS(0U)
+      , piecesCountO(0U) {
+    if((argc < 5) || (argc % 2 != 1)) {
+      throw std::invalid_argument("Invalid number of arguments");
+    } else {
+      bool gotWidth = false;
+      bool gotHeight = false;
+
+      for(int argi = 1; argi < argc; argi += 2) {
+        std::string const identifier = std::string(argv[argi]);
+        std::string const value = std::string(argv[argi + 1]);
+
+        if(identifier == "-w") {
+          ParseValue(boardWidth, value, "board width");
+          gotWidth = true;
+        } else if(identifier == "-h") {
+          ParseValue(boardHeight, value, "board height");
+          gotHeight = true;
+        } else if(identifier == "-I") {
+          ParseValue(piecesCountI, value, "number of 'I' pieces");
+        } else if(identifier == "-L") {
+          ParseValue(piecesCountL, value, "number of 'L' pieces");
+        } else if(identifier == "-J") {
+          ParseValue(piecesCountJ, value, "number of 'J' pieces");
+        } else if(identifier == "-T") {
+          ParseValue(piecesCountT, value, "number of 'T' pieces");
+        } else if(identifier == "-Z") {
+          ParseValue(piecesCountZ, value, "number of 'Z' pieces");
+        } else if(identifier == "-S") {
+          ParseValue(piecesCountS, value, "number of 'S' pieces");
+        } else if(identifier == "-O") {
+          ParseValue(piecesCountO, value, "number of 'O' pieces");
+        } else {
+          throw std::invalid_argument("Unknown argument: '" + identifier + "'");
+        }
+      }
+
+      if(!gotWidth || !gotHeight) {
+        throw std::invalid_argument("Board width and height must be provided");
+      }
+    }
+  }
+  catch(std::invalid_argument const &e) {
+    std::cout << e.what() << "\n\n";
+    std::cout << "Usage:\n" << argv[0];
+    std::cout << R"(
+  -w <board width>
+  -h <board height>
+  -I <number of 'I' pieces> (optional)
+  -L <number of 'L' pieces> (optional)
+  -J <number of 'J' pieces> (optional)
+  -T <number of 'T' pieces> (optional)
+  -Z <number of 'Z' pieces> (optional)
+  -S <number of 'S' pieces> (optional)
+  -O <number of 'O' pieces> (optional)
+)";
+    exit(EXIT_FAILURE);
+  }
+
+private:
+  template<typename T>
+  void ParseValue(T &value, std::string const &arg, std::string const &argName) {
+    long long num;
+    if(!(std::istringstream(arg) >> num) ||
+       (num < std::numeric_limits<T>::min()) ||
+       (num > std::numeric_limits<T>::max())) {
+      throw std::invalid_argument("Invalid " + argName + ": '" + arg + "'");
+    }
+    value = static_cast<T>(num);
+  }
+};
+
 void ResetTerminalColor() {
   std::cout << "\x1B[0m";
 }
@@ -268,10 +359,11 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  // parse command line arguments
+  CommandLineArguments const cmd(argc, argv);
+
   // create Board
-  size_t boardWidth = 4;
-  size_t boardHeight = 5;
-  Board board(boardWidth, boardHeight);
+  Board board(cmd.boardWidth, cmd.boardHeight);
 
 #ifdef DEBUG_BOARD_COLOR
   // test Board print
@@ -282,40 +374,35 @@ int main(int argc, char **argv) {
       std::cout << board << "\n";
     }
   }
-  board = Board(boardWidth, boardHeight);
+  // restore board
+  board = Board(cmd.boardWidth, cmd.boardHeight);
 #endif
 
   // create Pieces
-  unsigned int piecesCountI = 0;
-  unsigned int piecesCountL = 1;
-  unsigned int piecesCountJ = 0;
-  unsigned int piecesCountT = 2;
-  unsigned int piecesCountZ = 1;
-  unsigned int piecesCountS = 1;
-  unsigned int piecesCountO = 0;
   std::vector<Piece> pieces;
-  for(unsigned int i = 0; i < piecesCountI; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountI; ++i) {
     pieces.emplace_back(Piece::CreatePieceI(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountL; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountL; ++i) {
     pieces.emplace_back(Piece::CreatePieceL(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountJ; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountJ; ++i) {
     pieces.emplace_back(Piece::CreatePieceJ(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountT; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountT; ++i) {
     pieces.emplace_back(Piece::CreatePieceT(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountZ; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountZ; ++i) {
     pieces.emplace_back(Piece::CreatePieceZ(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountS; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountS; ++i) {
     pieces.emplace_back(Piece::CreatePieceS(static_cast<unsigned int>(pieces.size())));
   }
-  for(unsigned int i = 0; i < piecesCountO; ++i) {
+  for(unsigned int i = 0; i < cmd.piecesCountO; ++i) {
     pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
   }
 
+  // run recursive solver
   if(!Solve(board, pieces)) {
     std::cout << "No exact solution found\n";
   }
