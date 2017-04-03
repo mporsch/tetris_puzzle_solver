@@ -67,6 +67,16 @@ public:
     return m_id;
   }
 
+  size_t GetBlockCount() const {
+    return std::accumulate(this->begin(), this->end(), 0U,
+      [](size_t sum, bool filled) {
+        if(filled) {
+          ++sum;
+        }
+        return sum;
+      });
+  }
+
   bool RotateRight() {
     if(m_rotationCount >= 3U) {
       return false;
@@ -402,9 +412,17 @@ int main(int argc, char **argv) {
     pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
   }
 
-  // run recursive solver
-  if(!Solve(board, pieces)) {
-    std::cout << "No exact solution found\n";
+  size_t const piecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0U,
+    [](size_t sum, Piece const &piece) -> size_t {
+      return sum + piece.GetBlockCount();
+    });
+  if(piecesBlockCount > cmd.boardWidth * cmd.boardHeight) {
+    std::cout << "Not solvable (too many pieces)\n";
+  } else {
+    // run recursive solver
+    if(!Solve(board, pieces)) {
+      std::cout << "No exact solution found\n";
+    }
   }
 
   ResetTerminalColor();
