@@ -1,4 +1,5 @@
 #include <vector>
+#include <map>
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -9,6 +10,7 @@
 
 //#define DEBUG_BOARD_COLOR
 //#define DEBUG_SOLVER_STEPS
+//#define DEBUG_SOLVABLE_CHECK
 
 class Piece : public hypervector<bool, 2> {
 public:
@@ -214,7 +216,6 @@ public:
       });
   }
 
-private:
   bool IsBlockEmpty(size_t posX, size_t posY) const {
     return (this->at(posX, posY) == Color());
   }
@@ -231,38 +232,184 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
   return os;
 }
 
-bool Solve(Board const &board, std::vector<Piece> pieces) {
-  if(pieces.empty()) {
-    std::cout << board << "\n";
-    return board.IsSolved();
-  } else {
-#ifdef DEBUG_SOLVER_STEPS
-    std::cout << board << "\n";
-#endif
+void ResetTerminalColor() {
+  std::cout << "\x1B[0m";
+}
+
+class Solver {
+public:
+  Solver()
+  : m_pieceMinimumBlockCount(-1) {
   }
 
-  for(size_t piecesOrder = 0; piecesOrder < pieces.size(); ++piecesOrder) {
-    auto piece = pieces.at(0);
-    do {
-      for(size_t y = 0; y < board.size(1); ++y) {
-        for(size_t x = 0; x < board.size(0); ++x) {
-          if(board.MayInsert(piece, x, y)) {
-            // next iteration with updated board and pieces list
-            if(Solve(board.Insert(piece, x, y),
-                     std::vector<Piece>(std::next(pieces.begin()), pieces.end()))) {
-              return true;
+  bool Solve(Board const &board, std::vector<Piece> pieces) const {
+    if(pieces.empty()) {
+      std::cout << board << "\n";
+      return board.IsSolved();
+    } else {
+#ifdef DEBUG_SOLVER_STEPS
+      std::cout << board << "\n";
+#endif
+    }
+
+    if(!IsSolvable(board)) {
+#ifdef DEBUG_SOLVABLE_CHECK
+      ResetTerminalColor();
+      std::cout << "unsolvable:\n" << board << "\n";
+#endif
+      return false;
+    }
+
+    for(size_t piecesOrder = 0; piecesOrder < pieces.size(); ++piecesOrder) {
+      auto piece = pieces.at(0);
+      do {
+        for(size_t y = 0; y < board.size(1); ++y) {
+          for(size_t x = 0; x < board.size(0); ++x) {
+            if(board.MayInsert(piece, x, y)) {
+              // next iteration with updated board and pieces list
+              if(Solve(board.Insert(piece, x, y),
+                       std::vector<Piece>(std::next(pieces.begin()), pieces.end()))) {
+                return true;
+              }
             }
           }
         }
-      }
-    } while(piece.RotateRight()); // try again with this piece rotated
+      } while(piece.RotateRight()); // try again with this piece rotated
 
-    // try another order of pieces
-    std::rotate(pieces.begin(), std::next(pieces.begin()), pieces.end());
+      // try another order of pieces
+      std::rotate(pieces.begin(), std::next(pieces.begin()), pieces.end());
+    }
+
+    return false;
   }
 
-  return false;
-}
+  void SetPieceMinimumBlockCount(int pieceMinimumBlockCount) {
+    m_pieceMinimumBlockCount = pieceMinimumBlockCount;
+  }
+
+private:
+  bool IsSolvable(Board const &board) const {
+    return (GetMinimumEmptyClusterSize(board) >= m_pieceMinimumBlockCount);
+  }
+
+  static unsigned int GetMinimumEmptyClusterSize(Board const &board) {
+    std::vector<unsigned int> const ccs = ConnectedComponentLabeling(board);
+    return *std::min_element(begin(ccs), end(ccs));
+  }
+
+  static std::vector<unsigned int> ConnectedComponentLabeling(Board const &board) {
+    // structure for first pass connected components
+    struct ConnectedComponent {
+      ConnectedComponent *parent;
+      unsigned int size;
+
+      ConnectedComponent()
+        : parent(nullptr)
+        , size(0U) {
+      }
+    };
+
+    // map of label -> connected component
+    std::map<unsigned int, ConnectedComponent> connectedComponents;
+
+    // temporary image to cache labels
+    hypervector<unsigned int, 2> labelImage(board.size(0), board.size(1), 0U);
+
+    // method to assign new labels
+    unsigned int nextLabel = 1U;
+    auto newLabel = [&](unsigned int &current) {
+      current = nextLabel++;
+      ++connectedComponents[current].size;
+    };
+
+    // method to propagate labels
+    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor) {
+      current = neighbor;
+      ++connectedComponents[current].size;
+    };
+
+    // method to unify labels
+    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
+      current = left;
+      ++connectedComponents[left].size;
+      if(left < above) {
+        connectedComponents[above].parent = &connectedComponents[left];
+      } else {
+        connectedComponents[left].parent = &connectedComponents[above];
+      }
+    };
+
+    // method to propagate, assign new or unify labels
+    auto label = [&](unsigned int &current, unsigned int left, unsigned int above) {
+      if((left != 0U) && (above != 0U) && (left != above)) {
+        unifyLabel(current, left, above);
+      } else if(left != 0U) {
+        propagateLabel(current, left);
+      } else if(above != 0U) {
+        propagateLabel(current, above);
+      } else {
+        newLabel(current);
+      }
+    };
+
+    // first block
+    if(board.IsBlockEmpty(0U, 0U)) {
+      newLabel(labelImage.at(0U, 0U));
+    }
+
+    // first line
+    {
+      unsigned int left = labelImage.at(0U, 0U);
+      for(size_t y = 1; y < board.size(1); ++y) {
+        unsigned int &current = labelImage.at(0U, y);
+        if(board.IsBlockEmpty(0U, y)) {
+          label(current, left, 0U);
+        }
+        left = current;
+      }
+    }
+
+    // first column
+    {
+      unsigned int above = labelImage.at(0U, 0U);
+      for(size_t x = 1; x < board.size(0); ++x) {
+        unsigned int &current = labelImage.at(x, 0U);
+        if(board.IsBlockEmpty(x, 0U)) {
+          label(current, 0U, above);
+        }
+        above = current;
+      }
+    }
+
+    // remaining board
+    {
+      for(size_t y = 1U; y < board.size(1); ++y) {
+        for(size_t x = 1U; x < board.size(0); ++x) {
+          if(board.IsBlockEmpty(x, y)) {
+            unsigned int left = labelImage.at(x, y - 1);
+            unsigned int above = labelImage.at(x - 1, y);
+            unsigned int &current = labelImage.at(x, y);
+            label(current, left, above);
+          }
+        }
+      }
+    }
+
+    // aggregate connected components' sizes
+    std::vector<unsigned int> ret;
+    for(auto it = connectedComponents.rbegin(); it != connectedComponents.rend(); ++it) {
+      if(it->second.parent != nullptr) {
+        it->second.parent->size += it->second.size;
+      } else {
+        ret.emplace_back(it->second.size);
+      }
+    }
+    return ret;
+  }
+
+private:
+  int m_pieceMinimumBlockCount;
+};
 
 struct CommandLineArguments {
   size_t boardWidth;
@@ -353,10 +500,6 @@ private:
   }
 };
 
-void ResetTerminalColor() {
-  std::cout << "\x1B[0m";
-}
-
 void Cleanup(int) {
   ResetTerminalColor();
   exit(EXIT_SUCCESS);
@@ -419,8 +562,17 @@ int main(int argc, char **argv) {
   if(piecesBlockCount > cmd.boardWidth * cmd.boardHeight) {
     std::cout << "Not solvable (too many pieces)\n";
   } else {
+    Solver solver;
+
+    // prepare Solver optimizations
+    size_t minBlockCount = std::numeric_limits<size_t>::max();
+    for(auto &&piece : pieces) {
+      minBlockCount = std::min(minBlockCount, piece.GetBlockCount());
+    }
+    solver.SetPieceMinimumBlockCount(minBlockCount);
+
     // run recursive solver
-    if(!Solve(board, pieces)) {
+    if(!solver.Solve(board, pieces)) {
       std::cout << "No exact solution found\n";
     }
   }
