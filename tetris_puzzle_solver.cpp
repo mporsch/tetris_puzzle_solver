@@ -113,7 +113,7 @@ public:
   }
 
   static Color FromId(unsigned int id) {
-    static std::vector<unsigned int> colorLut = GetColorLut();
+    static std::vector<unsigned int> const colorLut = GetColorLut();
 
     Color ret;
     ret.m_colorCode = colorLut.at(id % colorLut.size());
@@ -407,7 +407,7 @@ int main(int argc, char **argv) {
     std::cout << "No exact solution found\n";
   }
 
-  Cleanup(0);
+  ResetTerminalColor();
   return EXIT_SUCCESS;
 }
 
