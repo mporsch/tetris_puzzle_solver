@@ -19,7 +19,7 @@ public:
   };
 
   static Piece CreatePieceI(unsigned int id) {
-    return Piece(1, 4, id, 2U);
+    return Piece(1, 4, id, 2);
   }
 
   static Piece CreatePieceL(unsigned int id) {
@@ -44,21 +44,21 @@ public:
   }
 
   static Piece CreatePieceZ(unsigned int id) {
-    Piece piece(3, 2, id, 2U);
+    Piece piece(3, 2, id, 2);
     piece.at(0, 1) = false;
     piece.at(2, 0) = false;
     return piece;
   }
 
   static Piece CreatePieceS(unsigned int id) {
-    Piece piece(3, 2, id, 2U);
+    Piece piece(3, 2, id, 2);
     piece.at(0, 0) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceO(unsigned int id) {
-    return Piece(2, 2, id, 3U);
+    return Piece(2, 2, id, 3);
   }
 
   bool IsBlockEmpty(size_t posX, size_t posY) const {
@@ -70,7 +70,7 @@ public:
   }
 
   size_t GetBlockCount() const {
-    return std::accumulate(this->begin(), this->end(), 0U,
+    return std::accumulate(this->begin(), this->end(), 0,
       [](size_t sum, bool filled) {
         if(filled) {
           ++sum;
@@ -80,14 +80,14 @@ public:
   }
 
   bool RotateRight() {
-    if(m_rotationCount >= 3U) {
+    if(m_rotationCount >= 3) {
       return false;
     } else {
       ++m_rotationCount;
     }
 
     // transpose
-    Piece transposed(this->size(1), this->size(0), 0U);
+    Piece transposed(this->size(1), this->size(0), 0);
     for(size_t x = 0; x < this->size(0); ++x) {
       for(size_t y = 0; y < this->size(1); ++y) {
         transposed.at(y, x) = this->at(x, y);
@@ -107,7 +107,7 @@ public:
   }
 
 private:
-  Piece(size_t sizeX, size_t sizeY, unsigned int id, unsigned int rotationCount = 0U)
+  Piece(size_t sizeX, size_t sizeY, unsigned int id, unsigned int rotationCount = 0)
     : hypervector<bool, 2>(sizeX, sizeY, true)
     , m_id(id)
     , m_rotationCount(rotationCount) {
@@ -324,7 +324,7 @@ private:
 
       ConnectedComponent()
         : parent(nullptr)
-        , size(0U) {
+        , size(0) {
       }
     };
 
@@ -332,10 +332,10 @@ private:
     std::map<unsigned int, ConnectedComponent> connectedComponents;
 
     // temporary image to cache labels
-    hypervector<unsigned int, 2> labelImage(board.size(0), board.size(1), 0U);
+    hypervector<unsigned int, 2> labelImage(board.size(0), board.size(1), 0);
 
     // method to assign new labels
-    unsigned int nextLabel = 1U;
+    unsigned int nextLabel = 1;
     auto newLabel = [&](unsigned int &current) {
       current = nextLabel++;
       ++connectedComponents[current].size;
@@ -360,11 +360,11 @@ private:
 
     // method to propagate, assign new or unify labels
     auto label = [&](unsigned int &current, unsigned int left, unsigned int above) {
-      if((left != 0U) && (above != 0U) && (left != above)) {
+      if((left != 0) && (above != 0) && (left != above)) {
         unifyLabel(current, left, above);
-      } else if(left != 0U) {
+      } else if(left != 0) {
         propagateLabel(current, left);
-      } else if(above != 0U) {
+      } else if(above != 0) {
         propagateLabel(current, above);
       } else {
         newLabel(current);
@@ -426,13 +426,13 @@ struct CommandLineArguments {
   unsigned int piecesCountO;
 
   CommandLineArguments(int argc, char **argv)
-  try : piecesCountI(0U)
-      , piecesCountL(0U)
-      , piecesCountJ(0U)
-      , piecesCountT(0U)
-      , piecesCountZ(0U)
-      , piecesCountS(0U)
-      , piecesCountO(0U) {
+  try : piecesCountI(0)
+      , piecesCountL(0)
+      , piecesCountJ(0)
+      , piecesCountT(0)
+      , piecesCountZ(0)
+      , piecesCountS(0)
+      , piecesCountO(0) {
     if((argc < 5) || (argc % 2 != 1)) {
       throw std::invalid_argument("Invalid number of arguments");
     } else {
@@ -558,7 +558,7 @@ int main(int argc, char **argv) {
     pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
   }
 
-  size_t const piecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0U,
+  size_t const piecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0,
     [](size_t sum, Piece const &piece) -> size_t {
       return sum + piece.GetBlockCount();
     });
