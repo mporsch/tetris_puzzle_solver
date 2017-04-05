@@ -352,45 +352,29 @@ private:
       }
     };
 
-    // first block
-    if(board.IsBlockEmpty(0U, 0U)) {
-      newLabel(labelImage.at(0U, 0U));
-    }
-
     // first line
     {
-      unsigned int left = labelImage.at(0U, 0U);
-      for(size_t y = 1; y < board.size(1); ++y) {
-        unsigned int &current = labelImage.at(0U, y);
-        if(board.IsBlockEmpty(0U, y)) {
-          label(current, left, 0U);
+      unsigned int left = 0;
+      for(size_t x = 0; x < board.size(0); ++x) {
+        unsigned int &current = labelImage.at(x, 0);
+        if(board.IsBlockEmpty(x, 0)) {
+          label(current, left, 0);
         }
         left = current;
       }
     }
 
-    // first column
-    {
-      unsigned int above = labelImage.at(0U, 0U);
-      for(size_t x = 1; x < board.size(0); ++x) {
-        unsigned int &current = labelImage.at(x, 0U);
-        if(board.IsBlockEmpty(x, 0U)) {
-          label(current, 0U, above);
-        }
-        above = current;
-      }
-    }
-
     // remaining board
     {
-      for(size_t y = 1U; y < board.size(1); ++y) {
-        for(size_t x = 1U; x < board.size(0); ++x) {
+      for(size_t y = 1; y < board.size(1); ++y) {
+        unsigned int left = 0;
+        for(size_t x = 0; x < board.size(0); ++x) {
+          unsigned int &current = labelImage.at(x, y);
           if(board.IsBlockEmpty(x, y)) {
-            unsigned int left = labelImage.at(x, y - 1);
-            unsigned int above = labelImage.at(x - 1, y);
-            unsigned int &current = labelImage.at(x, y);
+            unsigned int above = labelImage.at(x, y - 1);
             label(current, left, above);
           }
+          left = current;
         }
       }
     }
