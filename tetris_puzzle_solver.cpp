@@ -119,13 +119,32 @@ private:
 };
 
 class Color {
+private:
+  enum ColorCode {
+    Black        =  40,
+    Red          =  41,
+    Green        =  42,
+    Yellow       =  43,
+    Blue         =  44,
+    Magenta      =  45,
+    Cyan         =  46,
+    LightGray    =  47,
+    DarkGray     = 100,
+    LightRed     = 101,
+    LightGreen   = 102,
+    LightYellow  = 103,
+    LightBlue    = 104,
+    LightMagenta = 105,
+    LightCyan    = 106
+  };
+
 public:
   Color()
-    : m_colorCode(40U) { // black as default
+    : m_colorCode(Black) {
   }
 
   static Color FromId(unsigned int id) {
-    static std::vector<unsigned int> const colorLut = GetColorLut();
+    static std::vector<ColorCode> const colorLut = GetColorLut();
 
     Color ret;
     ret.m_colorCode = colorLut.at(id % colorLut.size());
@@ -145,21 +164,21 @@ public:
   friend std::ostream &operator<<(std::ostream &os, Color const &color);
 
 private:
-  static std::vector<unsigned int> GetColorLut() {
-    std::vector<unsigned int> ret;
+  static std::vector<ColorCode> GetColorLut() {
+    std::vector<ColorCode> ret;
 
-    for(unsigned int i = 41U; i < 48U; ++i) {
-      ret.emplace_back(i);
+    for(int i = Red; i <= LightGray; ++i) {
+      ret.emplace_back(static_cast<ColorCode>(i));
     }
-    for(unsigned int i = 100U; i < 107U; ++i) {
-      ret.emplace_back(i);
+    for(int i = DarkGray; i <= LightCyan; ++i) {
+      ret.emplace_back(static_cast<ColorCode>(i));
     }
 
     return ret;
   }
 
 private:
-  unsigned int m_colorCode;
+  ColorCode m_colorCode;
 };
 
 std::ostream &operator<<(std::ostream &os, Color const &color) {
