@@ -349,12 +349,21 @@ private:
 
     // method to unify labels
     auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
+      auto setParent = [](ConnectedComponent &cc, ConnectedComponent *parent) {
+        ConnectedComponent *child = &cc;
+        while((child->parent != nullptr) &&
+              (child->parent != parent)) {
+          child = child->parent;
+        }
+        child->parent = parent;
+      };
+
       current = left;
       ++connectedComponents[left].size;
       if(left < above) {
-        connectedComponents[above].parent = &connectedComponents[left];
+        setParent(connectedComponents[above], &connectedComponents[left]);
       } else {
-        connectedComponents[left].parent = &connectedComponents[above];
+        setParent(connectedComponents[left], &connectedComponents[above]);
       }
     };
 
