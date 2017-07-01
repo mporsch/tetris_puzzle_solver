@@ -452,7 +452,10 @@ public:
 #endif
     }
 
-    if(!IsSolvable(board)) {
+    ConnectedComponentLabeler ccl(board);
+
+    bool isSolvable = (ccl.GetMinimumSizeConnectedComponentSize() >= m_pieceMinimumBlockCount);
+    if(!isSolvable) {
 #ifdef DEBUG_SOLVABLE_CHECK
       ResetTerminalColor();
       std::cout << "unsolvable:\n" << board << "\n";
@@ -460,17 +463,19 @@ public:
       return false;
     }
 
+    auto const subBoard = ccl.GetMinimumSizeConnectedComponent();
+
     for(size_t piecesOrder = 0; piecesOrder < pieces.size(); ++piecesOrder) {
       auto piece = pieces.at(0);
       do {
-        for(size_t y = 0; y < board.size(1); ++y) {
-          for(size_t x = 0; x < board.size(0); ++x) {
+        for(size_t y = 0; y < subBoard.size(1); ++y) {
+          for(size_t x = 0; x < subBoard.size(0); ++x) {
             bool isBlackListed = (std::end(blackList.at(x, y)) != std::find(
               std::begin(blackList.at(x, y)),
               std::end(blackList.at(x, y)),
               piece.GetType()));
             if(!isBlackListed &&
-               board.MayInsert(piece, x, y)) {
+               subBoard.MayInsert(piece, x, y)) {
               // next iteration with updated board and pieces list
               if(Solve(board.Insert(piece, x, y),
                        blackList,
@@ -493,16 +498,6 @@ public:
 
   void SetPieceMinimumBlockCount(int pieceMinimumBlockCount) {
     m_pieceMinimumBlockCount = pieceMinimumBlockCount;
-  }
-
-private:
-  bool IsSolvable(Board const &board) const {
-    return (GetMinimumEmptyClusterSize(board) >= m_pieceMinimumBlockCount);
-  }
-
-  static unsigned int GetMinimumEmptyClusterSize(Board const &board) {
-    ConnectedComponentLabeler ccl(board);
-    return ccl.GetMinimumSizeConnectedComponentSize();
   }
 
 private:
