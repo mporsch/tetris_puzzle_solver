@@ -10,15 +10,15 @@
 
 //#define DEBUG_BOARD_COLOR
 //#define DEBUG_SOLVER_STEPS
+//#define DEBUG_CCL_STEPS
+//#define DEBUG_CCL_AGGREGATION
 //#define DEBUG_SOLVABLE_CHECK
 
 namespace {
-  void ResetTerminalColor() {
-    std::cout << "\x1B[0m";
-  }
+  static std::string const colorReset = "\x1B[0m";
 
   void Cleanup(int) {
-    ResetTerminalColor();
+    std::cout << colorReset;
     exit(EXIT_SUCCESS);
   }
 } // unnamed namespace
@@ -211,7 +211,7 @@ private:
 
 std::ostream &operator<<(std::ostream &os, Color const &color) {
   auto const str = std::to_string(color.m_colorCode);
-  os << "\e[" + str + "m";
+  os << "\e[" + str + "m" << ' ' << ' ';
   return os;
 }
 
@@ -270,16 +270,36 @@ public:
 };
 
 std::ostream &operator<<(std::ostream &os, Board const &board) {
-  for(size_t y = 0; y < board.size(1); ++y) {
+  for(size_t y = 0;; ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
       std::cout << board.at(x, y);
-      std::cout << ' ' << ' ';
     }
-    std::cout << "\n";
+    if(y < board.size(1) - 1) {
+      std::cout << "\n";
+    } else {
+      break;
+    }
   }
+  os << colorReset;
   return os;
 }
 
+
+std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &labelImage) {
+  for(size_t y = 0;; ++y) {
+    for(size_t x = 0; x < labelImage.size(0); ++x) {
+      auto const label = labelImage.at(x, y);
+      auto const color = (label == 0 ? Color() : Color::FromId(label));
+      os << color;
+    }
+    if(y < labelImage.size(1) - 1) {
+      os << "\n";
+    } else {
+      break;
+    }
+  }
+  os << colorReset;
+}
 
 class ConnectedComponentLabeler {
 private:
@@ -335,6 +355,17 @@ public:
       } else {
         newLabel(current);
       }
+
+      #ifdef DEBUG_CCL_STEPS
+          std::cout << m_labelImage << " CCL:";
+          for(auto &&p : connectedComponents) {
+            std::cout << " ["
+              << Color::FromId(p.first) << colorReset
+              << " parent " << Color::FromId(p.second.parent) << colorReset
+              << " size " << p.second.size << "]";
+          }
+          std::cout << "\n\n";
+      #endif
     };
 
     // first line
@@ -363,6 +394,10 @@ public:
         }
       }
     }
+
+#ifdef DEBUG_CCL_AGGREGATION
+    std::cout << m_labelImage << " CCL: non-aggregated\n\n";
+#endif
 
     // aggregate results
     for(auto &&p : connectedComponents) {
@@ -393,6 +428,12 @@ public:
         m_ccs[cc.parent].size += cc.size;
       }
     }
+
+#ifdef DEBUG_CCL_AGGREGATION
+    std::cout << m_labelImage << " CCL: aggregated, minimum-size connected component: "
+    << Color::FromId(GetMinimumSizeConnectedComponentLabel()) << colorReset
+    << " size=" << GetMinimumSizeConnectedComponentSize() << "\n\n";
+#endif
   }
 
   unsigned int GetMinimumSizeConnectedComponentSize() const {
@@ -448,7 +489,10 @@ public:
       return board.IsSolved();
     } else {
 #ifdef DEBUG_SOLVER_STEPS
-      std::cout << board << "\n";
+      static unsigned long long iterationCount = 0;
+      std::cout << board
+        << " Solver: pieces remaining " << pieces.size()
+        << ", iteration " << iterationCount++ << "\n\n";
 #endif
     }
 
@@ -457,8 +501,7 @@ public:
     bool isSolvable = (ccl.GetMinimumSizeConnectedComponentSize() >= m_pieceMinimumBlockCount);
     if(!isSolvable) {
 #ifdef DEBUG_SOLVABLE_CHECK
-      ResetTerminalColor();
-      std::cout << "unsolvable:\n" << board << "\n";
+      std::cout << board << " Solver: unsolvable\n\n";
 #endif
       return false;
     }
@@ -613,8 +656,10 @@ int main(int argc, char **argv) {
   unsigned int id = 0;
   for(size_t y = 0; y < board.size(1); ++y) {
     for(size_t x = 0; x < board.size(0); ++x) {
-      board.at(x, y) = Color::FromId(id++);
-      std::cout << board << "\n";
+      auto const color = Color::FromId(id);
+      board.at(x, y) = color;
+      std::cout << board << " Board: color id " << id++
+        << ", color " << color << colorReset << "\n\n";
     }
   }
   // restore board
@@ -667,6 +712,5 @@ int main(int argc, char **argv) {
     }
   }
 
-  ResetTerminalColor();
   return EXIT_SUCCESS;
 }
