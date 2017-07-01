@@ -14,51 +14,62 @@
 
 class Piece : public hypervector<bool, 2> {
 public:
+  struct Type {
+    char shape;
+    unsigned char rotationCount;
+
+    bool operator==(Type const &other) const {
+      return ((shape == other.shape) &&
+              (rotationCount == other.rotationCount));
+    }
+  };
+
+public:
   Piece()
     : hypervector<bool, 2>() {
   };
 
   static Piece CreatePieceI(unsigned int id) {
-    return Piece(1, 4, id, 2);
+    return Piece(1, 4, id, 'i', 2);
   }
 
   static Piece CreatePieceL(unsigned int id) {
-    Piece piece(2, 3, id);
+    Piece piece(2, 3, id, 'l');
     piece.at(1, 0) = false;
     piece.at(1, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceJ(unsigned int id) {
-    Piece piece(2, 3, id);
+    Piece piece(2, 3, id, 'j');
     piece.at(0, 0) = false;
     piece.at(0, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceT(unsigned int id) {
-    Piece piece(3, 2, id);
+    Piece piece(3, 2, id, 't');
     piece.at(0, 1) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceZ(unsigned int id) {
-    Piece piece(3, 2, id, 2);
+    Piece piece(3, 2, id, 'z', 2);
     piece.at(0, 1) = false;
     piece.at(2, 0) = false;
     return piece;
   }
 
   static Piece CreatePieceS(unsigned int id) {
-    Piece piece(3, 2, id, 2);
+    Piece piece(3, 2, id, 's', 2);
     piece.at(0, 0) = false;
     piece.at(2, 1) = false;
     return piece;
   }
 
   static Piece CreatePieceO(unsigned int id) {
-    return Piece(2, 2, id, 3);
+    return Piece(2, 2, id, 'o', 3);
   }
 
   bool IsBlockEmpty(size_t posX, size_t posY) const {
@@ -67,6 +78,10 @@ public:
 
   unsigned int GetId() const {
     return m_id;
+  }
+
+  Type GetType() const {
+    return m_type;
   }
 
   size_t GetBlockCount() const {
@@ -80,14 +95,14 @@ public:
   }
 
   bool RotateRight() {
-    if(m_rotationCount >= 3) {
+    if(m_type.rotationCount >= 3) {
       return false;
     } else {
-      ++m_rotationCount;
+      ++m_type.rotationCount;
     }
 
     // transpose
-    Piece transposed(this->size(1), this->size(0), 0);
+    Piece transposed(this->size(1), this->size(0), 0, this->GetType().shape);
     for(size_t x = 0; x < this->size(0); ++x) {
       for(size_t y = 0; y < this->size(1); ++y) {
         transposed.at(y, x) = this->at(x, y);
@@ -107,15 +122,15 @@ public:
   }
 
 private:
-  Piece(size_t sizeX, size_t sizeY, unsigned int id, unsigned int rotationCount = 0)
+  Piece(size_t sizeX, size_t sizeY, unsigned int id, char type, unsigned char rotationCount = 0)
     : hypervector<bool, 2>(sizeX, sizeY, true)
     , m_id(id)
-    , m_rotationCount(rotationCount) {
+    , m_type({type, rotationCount}) {
   };
 
 private:
   unsigned int m_id;
-  unsigned int m_rotationCount;
+  Type m_type;
 };
 
 class Color {
@@ -152,6 +167,7 @@ public:
   }
 
   Color(Color const &other) = default;
+  Color &operator=(Color const &other) = default;
 
   bool operator==(Color const &other) const {
     return (m_colorCode == other.m_colorCode);
@@ -257,11 +273,14 @@ void ResetTerminalColor() {
 
 class Solver {
 public:
+  using BlackList = hypervector<std::vector<Piece::Type>, 2>;
+
+public:
   Solver()
   : m_pieceMinimumBlockCount(-1) {
   }
 
-  bool Solve(Board const &board, std::vector<Piece> pieces) const {
+  bool Solve(Board const &board, BlackList blackList, std::vector<Piece> pieces) const {
     if(pieces.empty()) {
       std::cout << board << "\n";
       return board.IsSolved();
@@ -284,11 +303,19 @@ public:
       do {
         for(size_t y = 0; y < board.size(1); ++y) {
           for(size_t x = 0; x < board.size(0); ++x) {
-            if(board.MayInsert(piece, x, y)) {
+            bool isBlackListed = (std::end(blackList.at(x, y)) != std::find(
+              std::begin(blackList.at(x, y)),
+              std::end(blackList.at(x, y)),
+              piece.GetType()));
+            if(!isBlackListed &&
+               board.MayInsert(piece, x, y)) {
               // next iteration with updated board and pieces list
               if(Solve(board.Insert(piece, x, y),
+                       blackList,
                        std::vector<Piece>(std::next(pieces.begin()), pieces.end()))) {
                 return true;
+              } else {
+                blackList.at(x, y).push_back(piece.GetType());
               }
             }
           }
@@ -581,7 +608,7 @@ int main(int argc, char **argv) {
     solver.SetPieceMinimumBlockCount(minBlockCount);
 
     // run recursive solver
-    if(!solver.Solve(board, pieces)) {
+    if(!solver.Solve(board, Solver::BlackList(board.size(0), board.size(1)), pieces)) {
       std::cout << "No exact solution found\n";
     }
   }
