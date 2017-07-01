@@ -349,21 +349,18 @@ private:
 
     // method to unify labels
     auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
-      auto setParent = [](ConnectedComponent &cc, ConnectedComponent *parent) {
-        ConnectedComponent *child = &cc;
-        while((child->parent != nullptr) &&
-              (child->parent != parent)) {
-          child = child->parent;
+      auto setParentOnce = [](ConnectedComponent &child, ConnectedComponent *parent) {
+        if(child.parent == nullptr) {
+          child.parent = parent;
         }
-        child->parent = parent;
       };
 
       current = left;
       ++connectedComponents[left].size;
       if(left < above) {
-        setParent(connectedComponents[above], &connectedComponents[left]);
+        setParentOnce(connectedComponents[above], &connectedComponents[left]);
       } else {
-        setParent(connectedComponents[left], &connectedComponents[above]);
+        setParentOnce(connectedComponents[left], &connectedComponents[above]);
       }
     };
 
@@ -592,4 +589,3 @@ int main(int argc, char **argv) {
   ResetTerminalColor();
   return EXIT_SUCCESS;
 }
-
