@@ -12,6 +12,17 @@
 //#define DEBUG_SOLVER_STEPS
 //#define DEBUG_SOLVABLE_CHECK
 
+namespace {
+  void ResetTerminalColor() {
+    std::cout << "\x1B[0m";
+  }
+
+  void Cleanup(int) {
+    ResetTerminalColor();
+    exit(EXIT_SUCCESS);
+  }
+} // unnamed namespace
+
 class Piece : public hypervector<bool, 2> {
 public:
   struct Type {
@@ -133,6 +144,7 @@ private:
   Type m_type;
 };
 
+
 class Color {
 private:
   enum ColorCode {
@@ -203,10 +215,11 @@ std::ostream &operator<<(std::ostream &os, Color const &color) {
   return os;
 }
 
+
 class Board : public hypervector<Color, 2> {
 public:
-  Board(size_t sizeX, size_t sizeY)
-    : hypervector<Color, 2>(sizeX, sizeY) {
+  Board(size_t sizeX, size_t sizeY, Color color = Color())
+    : hypervector<Color, 2>(sizeX, sizeY, std::forward<Color>(color)) {
   }
 
   Board(Board const &other) = default;
@@ -267,9 +280,158 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
   return os;
 }
 
-void ResetTerminalColor() {
-  std::cout << "\x1B[0m";
-}
+
+class ConnectedComponentLabeler {
+private:
+  struct ConnectedComponent {
+    unsigned int size;
+  };
+
+public:
+  ConnectedComponentLabeler(Board const &board)
+    : m_labelImage(board.size(0), board.size(1), 0)
+    , m_ccs() {
+    struct ConnectedComponentTemp {
+      unsigned int parent;
+      unsigned int size;
+
+      ConnectedComponentTemp()
+        : parent(0)
+        , size(0) {
+      }
+    };
+
+    // map of label -> connected component
+    std::map<unsigned int, ConnectedComponentTemp> connectedComponents;
+
+    // method to assign new labels
+    unsigned int nextLabel = 1;
+    auto newLabel = [&](unsigned int &current) {
+      current = nextLabel++;
+      ++connectedComponents[current].size;
+    };
+
+    // method to propagate labels
+    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor) {
+      current = neighbor;
+      ++connectedComponents[current].size;
+    };
+
+    // method to unify labels
+    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
+      current = left;
+      ++connectedComponents[left].size;
+      connectedComponents.at(above).parent = left;
+    };
+
+    // method to propagate, assign new or unify labels
+    auto label = [&](unsigned int &current, unsigned int left, unsigned int above) {
+      if((left != 0) && (above != 0) && (left != above)) {
+        unifyLabel(current, left, above);
+      } else if(left != 0) {
+        propagateLabel(current, left);
+      } else if(above != 0) {
+        propagateLabel(current, above);
+      } else {
+        newLabel(current);
+      }
+    };
+
+    // first line
+    {
+      unsigned int left = 0;
+      for(size_t x = 0; x < board.size(0); ++x) {
+        unsigned int &current = m_labelImage.at(x, 0);
+        if(board.IsBlockEmpty(x, 0)) {
+          label(current, left, 0);
+        }
+        left = current;
+      }
+    }
+
+    // remaining board
+    {
+      for(size_t y = 1; y < board.size(1); ++y) {
+        unsigned int left = 0;
+        for(size_t x = 0; x < board.size(0); ++x) {
+          unsigned int &current = m_labelImage.at(x, y);
+          if(board.IsBlockEmpty(x, y)) {
+            unsigned int above = m_labelImage.at(x, y - 1);
+            label(current, left, above);
+          }
+          left = current;
+        }
+      }
+    }
+
+    // aggregate results
+    for(auto &&p : connectedComponents) {
+      auto &&cc = p.second;
+      if(cc.parent != 0) {
+        auto const parentLabel = connectedComponents.at(cc.parent).parent;
+        if(parentLabel != 0) {
+          cc.parent = parentLabel;
+        }
+      }
+    }
+    for(size_t y = 0; y < board.size(1); ++y) {
+      for(size_t x = 0; x < board.size(0); ++x) {
+        auto &label = m_labelImage.at(x, y);
+        if(label != 0) {
+          auto const parentLabel = connectedComponents.at(label).parent;
+          if(parentLabel != 0) {
+            label = parentLabel;
+          }
+        }
+      }
+    }
+    for(auto &&p : connectedComponents) {
+      auto &&cc = p.second;
+      if(cc.parent == 0) {
+        m_ccs[p.first].size += cc.size;
+      } else {
+        m_ccs[cc.parent].size += cc.size;
+      }
+    }
+  }
+
+  unsigned int GetMinimumSizeConnectedComponentSize() const {
+    return m_ccs.at(GetMinimumSizeConnectedComponentLabel()).size;
+  }
+
+  Board GetMinimumSizeConnectedComponent() const {
+    auto const label = GetMinimumSizeConnectedComponentLabel();
+
+    Board board(m_labelImage.size(0), m_labelImage.size(1), Color::FromId(label));
+    for(size_t y = 0; y < m_labelImage.size(1); ++y) {
+      for(size_t x = 0; x < m_labelImage.size(0); ++x) {
+        if(m_labelImage.at(x, y) == label) {
+          board.at(x, y) = Color();
+        }
+      }
+    }
+    return board;
+  }
+
+private:
+  unsigned int GetMinimumSizeConnectedComponentLabel() const {
+    auto minLabel = 0;
+    auto minSize = std::numeric_limits<unsigned int>::max();
+    for(auto &&p : m_ccs) {
+      auto &&cc = p.second;
+      if(cc.size < minSize) {
+        minSize = cc.size;
+        minLabel = p.first;
+      }
+    }
+    return minLabel;
+  }
+
+private:
+  hypervector<unsigned int, 2> m_labelImage;
+  std::map<unsigned int, ConnectedComponent> m_ccs; // map of label -> connected component
+};
+
 
 class Solver {
 public:
@@ -339,113 +501,14 @@ private:
   }
 
   static unsigned int GetMinimumEmptyClusterSize(Board const &board) {
-    std::vector<unsigned int> const ccs = ConnectedComponentLabeling(board);
-    return *std::min_element(begin(ccs), end(ccs));
-  }
-
-  static std::vector<unsigned int> ConnectedComponentLabeling(Board const &board) {
-    // structure for first pass connected components
-    struct ConnectedComponent {
-      ConnectedComponent *parent;
-      unsigned int size;
-
-      ConnectedComponent()
-        : parent(nullptr)
-        , size(0) {
-      }
-    };
-
-    // map of label -> connected component
-    std::map<unsigned int, ConnectedComponent> connectedComponents;
-
-    // temporary image to cache labels
-    hypervector<unsigned int, 2> labelImage(board.size(0), board.size(1), 0);
-
-    // method to assign new labels
-    unsigned int nextLabel = 1;
-    auto newLabel = [&](unsigned int &current) {
-      current = nextLabel++;
-      ++connectedComponents[current].size;
-    };
-
-    // method to propagate labels
-    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor) {
-      current = neighbor;
-      ++connectedComponents[current].size;
-    };
-
-    // method to unify labels
-    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
-      auto setParentOnce = [](ConnectedComponent &child, ConnectedComponent *parent) {
-        if(child.parent == nullptr) {
-          child.parent = parent;
-        }
-      };
-
-      current = left;
-      ++connectedComponents[left].size;
-      if(left < above) {
-        setParentOnce(connectedComponents[above], &connectedComponents[left]);
-      } else {
-        setParentOnce(connectedComponents[left], &connectedComponents[above]);
-      }
-    };
-
-    // method to propagate, assign new or unify labels
-    auto label = [&](unsigned int &current, unsigned int left, unsigned int above) {
-      if((left != 0) && (above != 0) && (left != above)) {
-        unifyLabel(current, left, above);
-      } else if(left != 0) {
-        propagateLabel(current, left);
-      } else if(above != 0) {
-        propagateLabel(current, above);
-      } else {
-        newLabel(current);
-      }
-    };
-
-    // first line
-    {
-      unsigned int left = 0;
-      for(size_t x = 0; x < board.size(0); ++x) {
-        unsigned int &current = labelImage.at(x, 0);
-        if(board.IsBlockEmpty(x, 0)) {
-          label(current, left, 0);
-        }
-        left = current;
-      }
-    }
-
-    // remaining board
-    {
-      for(size_t y = 1; y < board.size(1); ++y) {
-        unsigned int left = 0;
-        for(size_t x = 0; x < board.size(0); ++x) {
-          unsigned int &current = labelImage.at(x, y);
-          if(board.IsBlockEmpty(x, y)) {
-            unsigned int above = labelImage.at(x, y - 1);
-            label(current, left, above);
-          }
-          left = current;
-        }
-      }
-    }
-
-    // aggregate connected components' sizes
-    std::vector<unsigned int> ret;
-    for(auto it = connectedComponents.rbegin(); it != connectedComponents.rend(); ++it) {
-      if(it->second.parent != nullptr) {
-        it->second.parent->size += it->second.size;
-      } else {
-        ret.emplace_back(it->second.size);
-      }
-    }
-    return ret;
+    ConnectedComponentLabeler ccl(board);
+    return ccl.GetMinimumSizeConnectedComponentSize();
   }
 
 private:
   int m_pieceMinimumBlockCount;
 };
+
 
 struct CommandLineArguments {
   size_t boardWidth;
@@ -536,10 +599,6 @@ private:
   }
 };
 
-void Cleanup(int) {
-  ResetTerminalColor();
-  exit(EXIT_SUCCESS);
-}
 
 int main(int argc, char **argv) {
   // set up Ctrl-C handler
