@@ -275,7 +275,7 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
       std::cout << board.at(x, y);
     }
     if(y < board.size(1) - 1) {
-      std::cout << "\n";
+      std::cout << colorReset << "\n";
     } else {
       break;
     }
@@ -293,7 +293,7 @@ std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &l
       os << color;
     }
     if(y < labelImage.size(1) - 1) {
-      os << "\n";
+      os << colorReset << "\n";
     } else {
       break;
     }
