@@ -211,7 +211,7 @@ private:
 
 std::ostream &operator<<(std::ostream &os, Color const &color) {
   auto const str = std::to_string(color.m_colorCode);
-  os << "\e[" + str + "m" << ' ' << ' ';
+  os << "\x1B[" + str + "m" << ' ' << ' ';
   return os;
 }
 
