@@ -485,7 +485,7 @@ public:
 
   bool Solve(Board const &board, BlackList blackList, std::vector<Piece> pieces) const {
     if(pieces.empty()) {
-      std::cout << board << "\n";
+      std::cout << board << "\n\n";
       return board.IsSolved();
     } else {
 #ifdef DEBUG_SOLVER_STEPS
@@ -690,13 +690,18 @@ int main(int argc, char **argv) {
     pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
   }
 
-  size_t const piecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0,
+  size_t const expectedPiecesBlockCount = cmd.boardWidth * cmd.boardHeight;
+  size_t const receivedPiecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0,
     [](size_t sum, Piece const &piece) -> size_t {
       return sum + piece.GetBlockCount();
     });
-  if(piecesBlockCount > cmd.boardWidth * cmd.boardHeight) {
+  if(receivedPiecesBlockCount > expectedPiecesBlockCount) {
     std::cout << "Not solvable (too many pieces)\n";
   } else {
+    if(receivedPiecesBlockCount < expectedPiecesBlockCount) {
+      std::cout << "Multiple solutions possible (too few pieces)\n";
+    }
+
     Solver solver;
 
     // prepare Solver optimizations
