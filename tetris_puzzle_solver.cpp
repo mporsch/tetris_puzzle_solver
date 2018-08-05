@@ -38,7 +38,7 @@ public:
 public:
   Piece()
     : hypervector<bool, 2>() {
-  };
+  }
 
   static Piece CreatePieceI(unsigned int id) {
     return Piece(1, 4, id, 'i', 2);
@@ -137,7 +137,7 @@ private:
     : hypervector<bool, 2>(sizeX, sizeY, true)
     , m_id(id)
     , m_type({type, rotationCount}) {
-  };
+  }
 
 private:
   unsigned int m_id;
