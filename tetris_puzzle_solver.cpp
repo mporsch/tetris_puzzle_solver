@@ -1,12 +1,13 @@
-#include <vector>
-#include <map>
-#include <iostream>
-#include <string>
+#include "../hypervector/hypervector.h"
+
 #include <algorithm>
 #include <csignal>
-#include <sstream>
+#include <iostream>
 #include <limits>
-#include "../hypervector/hypervector.h"
+#include <map>
+#include <sstream>
+#include <string>
+#include <vector>
 
 //#define DEBUG_BOARD_COLOR
 //#define DEBUG_SOLVER_STEPS
@@ -40,46 +41,46 @@ public:
     : hypervector<unsigned char, 2>() {
   }
 
-  static Piece CreatePieceI(unsigned int id) {
+  static Piece CreateI(unsigned int id) {
     return Piece(1, 4, id, 'i', 2);
   }
 
-  static Piece CreatePieceL(unsigned int id) {
+  static Piece CreateL(unsigned int id) {
     Piece piece(2, 3, id, 'l');
     piece.at(1, 0) = 0x00;
     piece.at(1, 1) = 0x00;
     return piece;
   }
 
-  static Piece CreatePieceJ(unsigned int id) {
+  static Piece CreateJ(unsigned int id) {
     Piece piece(2, 3, id, 'j');
     piece.at(0, 0) = 0x00;
     piece.at(0, 1) = 0x00;
     return piece;
   }
 
-  static Piece CreatePieceT(unsigned int id) {
+  static Piece CreateT(unsigned int id) {
     Piece piece(3, 2, id, 't');
     piece.at(0, 1) = 0x00;
     piece.at(2, 1) = 0x00;
     return piece;
   }
 
-  static Piece CreatePieceZ(unsigned int id) {
+  static Piece CreateZ(unsigned int id) {
     Piece piece(3, 2, id, 'z', 2);
     piece.at(0, 1) = 0x00;
     piece.at(2, 0) = 0x00;
     return piece;
   }
 
-  static Piece CreatePieceS(unsigned int id) {
+  static Piece CreateS(unsigned int id) {
     Piece piece(3, 2, id, 's', 2);
     piece.at(0, 0) = 0x00;
     piece.at(2, 1) = 0x00;
     return piece;
   }
 
-  static Piece CreatePieceO(unsigned int id) {
+  static Piece CreateO(unsigned int id) {
     return Piece(2, 2, id, 'o', 3);
   }
 
@@ -95,9 +96,10 @@ public:
     return m_type;
   }
 
-  size_t GetBlockCount() const {
-    return std::accumulate(this->begin(), this->end(), 0,
-      [](size_t sum, bool filled) {
+  unsigned int GetBlockCount() const {
+    return std::accumulate(
+      this->begin(), this->end(), static_cast<unsigned int>(0),
+      [](unsigned int sum, unsigned char filled) -> unsigned int {
         if(filled) {
           ++sum;
         }
@@ -196,10 +198,10 @@ private:
     std::vector<ColorCode> ret;
 
     for(int i = Red; i <= LightGray; ++i) {
-      ret.emplace_back(static_cast<ColorCode>(i));
+      ret.push_back(static_cast<ColorCode>(i));
     }
     for(int i = DarkGray; i <= LightCyan; ++i) {
-      ret.emplace_back(static_cast<ColorCode>(i));
+      ret.push_back(static_cast<ColorCode>(i));
     }
 
     return ret;
@@ -219,7 +221,7 @@ std::ostream &operator<<(std::ostream &os, Color const &color) {
 class Board : public hypervector<Color, 2> {
 public:
   Board(size_t sizeX, size_t sizeY, Color color = Color())
-    : hypervector<Color, 2>(sizeX, sizeY, std::forward<Color>(color)) {
+    : hypervector<Color, 2>(sizeX, sizeY, color) {
   }
 
   Board(Board const &other) = default;
@@ -299,6 +301,7 @@ std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &l
     }
   }
   os << colorReset;
+  return os;
 }
 
 class ConnectedComponentLabeler {
@@ -456,7 +459,7 @@ public:
 
 private:
   unsigned int GetMinimumSizeConnectedComponentLabel() const {
-    auto minLabel = 0;
+    unsigned int minLabel = 0;
     auto minSize = std::numeric_limits<unsigned int>::max();
     for(auto &&p : m_ccs) {
       auto &&cc = p.second;
@@ -480,7 +483,7 @@ public:
 
 public:
   Solver()
-  : m_pieceMinimumBlockCount(-1) {
+    : m_pieceMinimumBlockCount(0) {
   }
 
   bool Solve(Board const &board, BlackList blackList, std::vector<Piece> pieces) const {
@@ -513,9 +516,9 @@ public:
       do {
         for(size_t y = 0; y < subBoard.size(1); ++y) {
           for(size_t x = 0; x < subBoard.size(0); ++x) {
-            bool isBlackListed = (std::end(blackList.at(x, y)) != std::find(
-              std::begin(blackList.at(x, y)),
-              std::end(blackList.at(x, y)),
+            bool isBlackListed = (end(blackList.at(x, y)) != std::find(
+              begin(blackList.at(x, y)),
+              end(blackList.at(x, y)),
               piece.GetType()));
             if(!isBlackListed &&
                subBoard.MayInsert(piece, x, y)) {
@@ -539,12 +542,12 @@ public:
     return false;
   }
 
-  void SetPieceMinimumBlockCount(int pieceMinimumBlockCount) {
+  void SetPieceMinimumBlockCount(unsigned int pieceMinimumBlockCount) {
     m_pieceMinimumBlockCount = pieceMinimumBlockCount;
   }
 
 private:
-  int m_pieceMinimumBlockCount;
+  unsigned int m_pieceMinimumBlockCount;
 };
 
 
@@ -669,30 +672,31 @@ int main(int argc, char **argv) {
   // create Pieces
   std::vector<Piece> pieces;
   for(unsigned int i = 0; i < cmd.piecesCountI; ++i) {
-    pieces.emplace_back(Piece::CreatePieceI(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateI(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountL; ++i) {
-    pieces.emplace_back(Piece::CreatePieceL(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateL(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountJ; ++i) {
-    pieces.emplace_back(Piece::CreatePieceJ(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateJ(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountT; ++i) {
-    pieces.emplace_back(Piece::CreatePieceT(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateT(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountZ; ++i) {
-    pieces.emplace_back(Piece::CreatePieceZ(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateZ(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountS; ++i) {
-    pieces.emplace_back(Piece::CreatePieceS(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateS(static_cast<unsigned int>(pieces.size())));
   }
   for(unsigned int i = 0; i < cmd.piecesCountO; ++i) {
-    pieces.emplace_back(Piece::CreatePieceO(static_cast<unsigned int>(pieces.size())));
+    pieces.push_back(Piece::CreateO(static_cast<unsigned int>(pieces.size())));
   }
 
-  size_t const expectedPiecesBlockCount = cmd.boardWidth * cmd.boardHeight;
-  size_t const receivedPiecesBlockCount = std::accumulate(begin(pieces), end(pieces), 0,
-    [](size_t sum, Piece const &piece) -> size_t {
+  auto const expectedPiecesBlockCount = cmd.boardWidth * cmd.boardHeight;
+  auto const receivedPiecesBlockCount = std::accumulate(
+    begin(pieces), end(pieces), static_cast<unsigned int>(0),
+    [](unsigned int sum, Piece const &piece) -> unsigned int {
       return sum + piece.GetBlockCount();
     });
   if(receivedPiecesBlockCount > expectedPiecesBlockCount) {
@@ -705,7 +709,7 @@ int main(int argc, char **argv) {
     Solver solver;
 
     // prepare Solver optimizations
-    size_t minBlockCount = std::numeric_limits<size_t>::max();
+    auto minBlockCount = std::numeric_limits<unsigned int>::max();
     for(auto &&piece : pieces) {
       minBlockCount = std::min(minBlockCount, piece.GetBlockCount());
     }
