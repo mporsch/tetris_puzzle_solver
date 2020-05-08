@@ -23,7 +23,7 @@ namespace {
   }
 } // unnamed namespace
 
-class Piece : public hypervector<bool, 2> {
+class Piece : public hypervector<unsigned char, 2> {
 public:
   struct Type {
     char shape;
@@ -37,7 +37,7 @@ public:
 
 public:
   Piece()
-    : hypervector<bool, 2>() {
+    : hypervector<unsigned char, 2>() {
   }
 
   static Piece CreatePieceI(unsigned int id) {
@@ -46,36 +46,36 @@ public:
 
   static Piece CreatePieceL(unsigned int id) {
     Piece piece(2, 3, id, 'l');
-    piece.at(1, 0) = false;
-    piece.at(1, 1) = false;
+    piece.at(1, 0) = 0x00;
+    piece.at(1, 1) = 0x00;
     return piece;
   }
 
   static Piece CreatePieceJ(unsigned int id) {
     Piece piece(2, 3, id, 'j');
-    piece.at(0, 0) = false;
-    piece.at(0, 1) = false;
+    piece.at(0, 0) = 0x00;
+    piece.at(0, 1) = 0x00;
     return piece;
   }
 
   static Piece CreatePieceT(unsigned int id) {
     Piece piece(3, 2, id, 't');
-    piece.at(0, 1) = false;
-    piece.at(2, 1) = false;
+    piece.at(0, 1) = 0x00;
+    piece.at(2, 1) = 0x00;
     return piece;
   }
 
   static Piece CreatePieceZ(unsigned int id) {
     Piece piece(3, 2, id, 'z', 2);
-    piece.at(0, 1) = false;
-    piece.at(2, 0) = false;
+    piece.at(0, 1) = 0x00;
+    piece.at(2, 0) = 0x00;
     return piece;
   }
 
   static Piece CreatePieceS(unsigned int id) {
     Piece piece(3, 2, id, 's', 2);
-    piece.at(0, 0) = false;
-    piece.at(2, 1) = false;
+    piece.at(0, 0) = 0x00;
+    piece.at(2, 1) = 0x00;
     return piece;
   }
 
@@ -134,7 +134,7 @@ public:
 
 private:
   Piece(size_t sizeX, size_t sizeY, unsigned int id, char type, unsigned char rotationCount = 0)
-    : hypervector<bool, 2>(sizeX, sizeY, true)
+    : hypervector<unsigned char, 2>(sizeX, sizeY, 0xFF)
     , m_id(id)
     , m_type({type, rotationCount}) {
   }
