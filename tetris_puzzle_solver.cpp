@@ -486,15 +486,22 @@ public:
     : m_pieceMinimumBlockCount(0) {
   }
 
-  bool Solve(Board const &board, BlackList blackList, std::vector<Piece> pieces) const {
-    if(pieces.empty()) {
+  // recursive function performing depth-first tree search
+  // operates on its own copy of board and blacklist
+  // but shares pieces and modifies their order
+  bool Solve(Board board,
+             BlackList blackList,
+             std::vector<Piece>::iterator firstPiece,
+             std::vector<Piece>::iterator lastPiece) const {
+    auto const piecesCount = std::distance(firstPiece, lastPiece);
+    if(!piecesCount) {
       std::cout << board << "\n\n";
       return board.IsSolved();
     } else {
 #ifdef DEBUG_SOLVER_STEPS
       static unsigned long long iterationCount = 0;
       std::cout << board
-        << " Solver: pieces remaining " << pieces.size()
+        << " Solver: pieces remaining " << piecesCount
         << ", iteration " << iterationCount++ << "\n\n";
 #endif
     }
@@ -511,8 +518,8 @@ public:
 
     auto const subBoard = ccl.GetMinimumSizeConnectedComponent();
 
-    for(size_t piecesOrder = 0; piecesOrder < pieces.size(); ++piecesOrder) {
-      auto piece = pieces.at(0);
+    for(ptrdiff_t piecesOrder = 0; piecesOrder < piecesCount; ++piecesOrder) {
+      auto piece = *firstPiece;
       do {
         for(size_t y = 0; y < subBoard.size(1); ++y) {
           for(size_t x = 0; x < subBoard.size(0); ++x) {
@@ -525,7 +532,8 @@ public:
               // next iteration with updated board and pieces list
               if(Solve(board.Insert(piece, x, y),
                        blackList,
-                       std::vector<Piece>(std::next(pieces.begin()), pieces.end()))) {
+                       std::next(firstPiece),
+                       lastPiece)) {
                 return true;
               } else {
                 blackList.at(x, y).push_back(piece.GetType());
@@ -535,8 +543,8 @@ public:
         }
       } while(piece.RotateRight()); // try again with this piece rotated
 
-      // try another order of pieces
-      std::rotate(pieces.begin(), std::next(pieces.begin()), pieces.end());
+      // try another order of pieces (rotate left)
+      std::rotate(firstPiece, std::next(firstPiece), lastPiece);
     }
 
     return false;
@@ -716,7 +724,10 @@ int main(int argc, char **argv) {
     solver.SetPieceMinimumBlockCount(minBlockCount);
 
     // run recursive solver
-    if(!solver.Solve(board, Solver::BlackList(board.size(0), board.size(1)), pieces)) {
+    if(!solver.Solve(std::move(board),
+                     Solver::BlackList(board.size(0), board.size(1)),
+                     begin(pieces),
+                     end(pieces))) {
       std::cout << "No exact solution found\n";
     }
   }
