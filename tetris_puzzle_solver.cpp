@@ -24,8 +24,7 @@ namespace {
   }
 } // unnamed namespace
 
-class Piece : public hypervector<unsigned char, 2> {
-public:
+struct Piece : public hypervector<unsigned char, 2> {
   struct Type {
     char shape;
     unsigned char rotationCount;
@@ -36,10 +35,7 @@ public:
     }
   };
 
-public:
-  Piece()
-    : hypervector<unsigned char, 2>() {
-  }
+  Piece() = default;
 
   static Piece CreateI(unsigned int id) {
     return Piece(1, 4, id, 'i', 2);
@@ -183,12 +179,8 @@ public:
   Color(Color const &other) = default;
   Color &operator=(Color const &other) = default;
 
-  bool operator==(Color const &other) const {
-    return (m_colorCode == other.m_colorCode);
-  }
-
-  bool operator!=(Color const &other) const {
-    return (m_colorCode != other.m_colorCode);
+  operator bool() const {
+    return (m_colorCode != Black);
   }
 
   friend std::ostream &operator<<(std::ostream &os, Color const &color);
@@ -223,8 +215,6 @@ public:
   Board(size_t sizeX, size_t sizeY, Color color = Color())
     : hypervector<Color, 2>(sizeX, sizeY, color) {
   }
-
-  Board(Board const &other) = default;
 
   bool MayInsert(Piece const &piece, size_t posX, size_t posY) const {
     if(posX + piece.size(0) > this->size(0)) {
@@ -262,12 +252,12 @@ public:
   bool IsSolved() const {
     return std::all_of(this->begin(), this->end(),
       [](Color const &color) -> bool {
-        return (color != Color());
+        return color;
       });
   }
 
   bool IsBlockEmpty(size_t posX, size_t posY) const {
-    return (this->at(posX, posY) == Color());
+    return !this->at(posX, posY);
   }
 };
 
@@ -367,7 +357,7 @@ public:
               << " parent " << Color::FromId(p.second.parent) << colorReset
               << " size " << p.second.size << "]";
           }
-          std::cout << "\n\n";
+          std::cout << std::endl;
       #endif
     };
 
@@ -399,7 +389,7 @@ public:
     }
 
 #ifdef DEBUG_CCL_AGGREGATION
-    std::cout << m_labelImage << " CCL: non-aggregated\n\n";
+    std::cout << m_labelImage << " CCL: non-aggregated" << std::endl;
 #endif
 
     // aggregate results
@@ -434,17 +424,17 @@ public:
 
 #ifdef DEBUG_CCL_AGGREGATION
     std::cout << m_labelImage << " CCL: aggregated, minimum-size connected component: "
-    << Color::FromId(GetMinimumSizeConnectedComponentLabel()) << colorReset
-    << " size=" << GetMinimumSizeConnectedComponentSize() << "\n\n";
+    << Color::FromId(GetMinLabel()) << colorReset
+    << " size=" << GetMinSize() << std::endl;
 #endif
   }
 
-  unsigned int GetMinimumSizeConnectedComponentSize() const {
-    return m_ccs.at(GetMinimumSizeConnectedComponentLabel()).size;
+  unsigned int GetMinSize() const {
+    return m_ccs.at(GetMinLabel()).size;
   }
 
-  Board GetMinimumSizeConnectedComponent() const {
-    auto const label = GetMinimumSizeConnectedComponentLabel();
+  Board GetMin() const {
+    auto const label = GetMinLabel();
 
     Board board(m_labelImage.size(0), m_labelImage.size(1), Color::FromId(label));
     for(size_t y = 0; y < m_labelImage.size(1); ++y) {
@@ -458,7 +448,7 @@ public:
   }
 
 private:
-  unsigned int GetMinimumSizeConnectedComponentLabel() const {
+  unsigned int GetMinLabel() const {
     unsigned int minLabel = 0;
     auto minSize = std::numeric_limits<unsigned int>::max();
     for(auto &&p : m_ccs) {
@@ -477,13 +467,13 @@ private:
 };
 
 
-class Solver {
-public:
+struct Solver {
   using BlackList = hypervector<std::vector<Piece::Type>, 2>;
 
-public:
+  unsigned int pieceMinimumBlockCount;
+
   Solver()
-    : m_pieceMinimumBlockCount(0) {
+    : pieceMinimumBlockCount(0) {
   }
 
   // recursive function performing depth-first tree search
@@ -502,33 +492,31 @@ public:
       static unsigned long long iterationCount = 0;
       std::cout << board
         << " Solver: pieces remaining " << piecesCount
-        << ", iteration " << iterationCount++ << "\n\n";
+        << ", iteration " << iterationCount++ << std::endl;
 #endif
     }
 
     ConnectedComponentLabeler ccl(board);
 
-    bool isSolvable = (ccl.GetMinimumSizeConnectedComponentSize() >= m_pieceMinimumBlockCount);
+    bool isSolvable = (ccl.GetMinSize() >= pieceMinimumBlockCount);
     if(!isSolvable) {
 #ifdef DEBUG_SOLVABLE_CHECK
-      std::cout << board << " Solver: unsolvable\n\n";
+      std::cout << board << " Solver: unsolvable" << std::endl;
 #endif
       return false;
     }
 
-    auto const subBoard = ccl.GetMinimumSizeConnectedComponent();
+    auto const subBoard = ccl.GetMin();
 
     for(ptrdiff_t piecesOrder = 0; piecesOrder < piecesCount; ++piecesOrder) {
       auto piece = *firstPiece;
       do {
         for(size_t y = 0; y < subBoard.size(1); ++y) {
           for(size_t x = 0; x < subBoard.size(0); ++x) {
-            bool isBlackListed = (end(blackList.at(x, y)) != std::find(
-              begin(blackList.at(x, y)),
-              end(blackList.at(x, y)),
-              piece.GetType()));
-            if(!isBlackListed &&
-               subBoard.MayInsert(piece, x, y)) {
+            auto &&blackListEntry = blackList.at(x, y);
+            bool isBlackListed = (end(blackListEntry) != std::find(
+              begin(blackListEntry), end(blackListEntry), piece.GetType()));
+            if(!isBlackListed && subBoard.MayInsert(piece, x, y)) {
               // next iteration with updated board and pieces list
               if(Solve(board.Insert(piece, x, y),
                        blackList,
@@ -536,7 +524,8 @@ public:
                        lastPiece)) {
                 return true;
               } else {
-                blackList.at(x, y).push_back(piece.GetType());
+                // do not try the same type in the same spot again, if we have multiple
+                blackListEntry.push_back(piece.GetType());
               }
             }
           }
@@ -549,13 +538,6 @@ public:
 
     return false;
   }
-
-  void SetPieceMinimumBlockCount(unsigned int pieceMinimumBlockCount) {
-    m_pieceMinimumBlockCount = pieceMinimumBlockCount;
-  }
-
-private:
-  unsigned int m_pieceMinimumBlockCount;
 };
 
 
@@ -670,7 +652,7 @@ int main(int argc, char **argv) {
       auto const color = Color::FromId(id);
       board.at(x, y) = color;
       std::cout << board << " Board: color id " << id++
-        << ", color " << color << colorReset << "\n\n";
+        << ", color " << color << colorReset << std::endl;
     }
   }
   // restore board
@@ -721,7 +703,7 @@ int main(int argc, char **argv) {
     for(auto &&piece : pieces) {
       minBlockCount = std::min(minBlockCount, piece.GetBlockCount());
     }
-    solver.SetPieceMinimumBlockCount(minBlockCount);
+    solver.pieceMinimumBlockCount = minBlockCount;
 
     // run recursive solver
     if(!solver.Solve(std::move(board),
