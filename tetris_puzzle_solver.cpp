@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -16,13 +17,13 @@
 //#define DEBUG_SOLVABLE_CHECK
 
 namespace {
-  static std::string const colorReset = "\x1B[0m";
 
-  void Cleanup(int) {
-    std::cout << colorReset;
-    exit(EXIT_SUCCESS);
-  }
-} // unnamed namespace
+static std::string const colorReset = "\x1B[0m";
+
+void Cleanup(int) {
+  std::cout << colorReset;
+  exit(EXIT_SUCCESS);
+}
 
 struct Piece : public hypervector<unsigned char, 2> {
   struct Type {
@@ -34,6 +35,9 @@ struct Piece : public hypervector<unsigned char, 2> {
               (rotationCount == other.rotationCount));
     }
   };
+
+  unsigned int id;
+  Type type;
 
   Piece() = default;
 
@@ -84,14 +88,6 @@ struct Piece : public hypervector<unsigned char, 2> {
     return !this->at(posX, posY);
   }
 
-  unsigned int GetId() const {
-    return m_id;
-  }
-
-  Type GetType() const {
-    return m_type;
-  }
-
   unsigned int GetBlockCount() const {
     return std::accumulate(
       this->begin(), this->end(), static_cast<unsigned int>(0),
@@ -104,14 +100,14 @@ struct Piece : public hypervector<unsigned char, 2> {
   }
 
   bool RotateRight() {
-    if(m_type.rotationCount >= 3) {
+    if(type.rotationCount >= 3) {
       return false;
     } else {
-      ++m_type.rotationCount;
+      ++type.rotationCount;
     }
 
     // transpose
-    Piece transposed(this->size(1), this->size(0), 0, this->GetType().shape);
+    hypervector<unsigned char, 2> transposed(this->size(1), this->size(0));
     for(size_t x = 0; x < this->size(0); ++x) {
       for(size_t y = 0; y < this->size(1); ++y) {
         transposed.at(y, x) = this->at(x, y);
@@ -121,9 +117,10 @@ struct Piece : public hypervector<unsigned char, 2> {
     this->resize(this->size(1), this->size(0));
 
     // mirror vertically
+    auto const offsetX = this->size(0) - 1;
     for(size_t x = 0; x < this->size(0); ++x) {
       for(size_t y = 0; y < this->size(1); ++y) {
-        this->at(x, y) = transposed.at(this->size(0) - x - 1, y);
+        this->at(x, y) = transposed.at(offsetX - x, y);
       }
     }
 
@@ -131,20 +128,19 @@ struct Piece : public hypervector<unsigned char, 2> {
   }
 
 private:
-  Piece(size_t sizeX, size_t sizeY, unsigned int id, char type, unsigned char rotationCount = 0)
+  Piece(size_t sizeX,
+        size_t sizeY,
+        unsigned int id,
+        char type,
+        unsigned char rotationCount = 0)
     : hypervector<unsigned char, 2>(sizeX, sizeY, 0xFF)
-    , m_id(id)
-    , m_type({type, rotationCount}) {
+    , id(id)
+    , type({type, rotationCount}) {
   }
-
-private:
-  unsigned int m_id;
-  Type m_type;
 };
 
 
 class Color {
-private:
   enum ColorCode {
     Black        =  40,
     Red          =  41,
@@ -172,12 +168,9 @@ public:
     static std::vector<ColorCode> const colorLut = GetColorLut();
 
     Color ret;
-    ret.m_colorCode = colorLut.at(id % colorLut.size());
+    ret.m_colorCode = colorLut[id % colorLut.size()];
     return ret;
   }
-
-  Color(Color const &other) = default;
-  Color &operator=(Color const &other) = default;
 
   operator bool() const {
     return (m_colorCode != Black);
@@ -204,28 +197,26 @@ private:
 };
 
 std::ostream &operator<<(std::ostream &os, Color const &color) {
-  auto const str = std::to_string(color.m_colorCode);
-  os << "\x1B[" + str + "m" << ' ' << ' ';
+  os << "\x1B[" << color.m_colorCode << "m" << ' ' << ' ';
   return os;
 }
 
 
-class Board : public hypervector<Color, 2> {
-public:
+struct Board : public hypervector<Color, 2> {
   Board(size_t sizeX, size_t sizeY, Color color = Color())
     : hypervector<Color, 2>(sizeX, sizeY, color) {
   }
 
   bool MayInsert(Piece const &piece, size_t posX, size_t posY) const {
-    if(posX + piece.size(0) > this->size(0)) {
-      return false;
-    }
-    if(posY + piece.size(1) > this->size(1)) {
+    // check if piece exceeds the board
+    if((posX + piece.size(0) > this->size(0)) ||
+       (posY + piece.size(1) > this->size(1))) {
       return false;
     }
 
     for(size_t y = 0; y < piece.size(1); ++y) {
       for(size_t x = 0; x < piece.size(0); ++x) {
+        // where there is a block in the piece, none must be in the board yet
         if(!piece.IsBlockEmpty(x, y) && !IsBlockEmpty(posX + x, posY + y)) {
           return false;
         }
@@ -238,10 +229,12 @@ public:
   Board Insert(Piece const &piece, size_t posX, size_t posY) const {
     Board ret(*this);
 
+    auto const color = Color::FromId(piece.id);
     for(size_t y = 0; y < piece.size(1); ++y) {
       for(size_t x = 0; x < piece.size(0); ++x) {
+        // color the board blocks with the inserted piece
         if(!piece.IsBlockEmpty(x, y)) {
-          ret.at(posX + x, posY + y) = Color::FromId(piece.GetId());
+          ret.at(posX + x, posY + y) = color;
         }
       }
     }
@@ -250,6 +243,7 @@ public:
   }
 
   bool IsSolved() const {
+    // solved when no uncolored blocks remain
     return std::all_of(this->begin(), this->end(),
       [](Color const &color) -> bool {
         return color;
@@ -294,6 +288,7 @@ std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &l
   return os;
 }
 
+// labeler for the empty blocks of the board that are yet to be filled
 class ConnectedComponentLabeler {
 private:
   struct ConnectedComponent {
@@ -422,28 +417,31 @@ public:
       }
     }
 
+    m_minLabel = GetMinLabel();
+
 #ifdef DEBUG_CCL_AGGREGATION
     std::cout << m_labelImage << " CCL: aggregated, minimum-size connected component: "
-    << Color::FromId(GetMinLabel()) << colorReset
+    << Color::FromId(m_minLabel) << colorReset
     << " size=" << GetMinSize() << std::endl;
 #endif
   }
 
   unsigned int GetMinSize() const {
-    return m_ccs.at(GetMinLabel()).size;
+    return m_ccs.at(m_minLabel).size;
   }
 
+  // get board where the minimum-size component's blocks are uncolored
   Board GetMin() const {
-    auto const label = GetMinLabel();
+    Board board(m_labelImage.size(0), m_labelImage.size(1), Color::FromId(m_minLabel));
 
-    Board board(m_labelImage.size(0), m_labelImage.size(1), Color::FromId(label));
     for(size_t y = 0; y < m_labelImage.size(1); ++y) {
       for(size_t x = 0; x < m_labelImage.size(0); ++x) {
-        if(m_labelImage.at(x, y) == label) {
+        if(m_labelImage.at(x, y) == m_minLabel) {
           board.at(x, y) = Color();
         }
       }
     }
+
     return board;
   }
 
@@ -464,6 +462,7 @@ private:
 private:
   hypervector<unsigned int, 2> m_labelImage;
   std::map<unsigned int, ConnectedComponent> m_ccs; // map of label -> connected component
+  unsigned int m_minLabel;
 };
 
 
@@ -485,6 +484,7 @@ struct Solver {
              std::vector<Piece>::iterator lastPiece) const {
     auto const piecesCount = std::distance(firstPiece, lastPiece);
     if(!piecesCount) {
+      // all pieces have been placed
       std::cout << board << "\n\n";
       return board.IsSolved();
     } else {
@@ -496,6 +496,8 @@ struct Solver {
 #endif
     }
 
+    // determine the remaining board blocks,
+    // especially the smallest, most restrictive remaining space
     ConnectedComponentLabeler ccl(board);
 
     bool isSolvable = (ccl.GetMinSize() >= pieceMinimumBlockCount);
@@ -515,7 +517,7 @@ struct Solver {
           for(size_t x = 0; x < subBoard.size(0); ++x) {
             auto &&blackListEntry = blackList.at(x, y);
             bool isBlackListed = (end(blackListEntry) != std::find(
-              begin(blackListEntry), end(blackListEntry), piece.GetType()));
+              begin(blackListEntry), end(blackListEntry), piece.type));
             if(!isBlackListed && subBoard.MayInsert(piece, x, y)) {
               // next iteration with updated board and pieces list
               if(Solve(board.Insert(piece, x, y),
@@ -525,7 +527,7 @@ struct Solver {
                 return true;
               } else {
                 // do not try the same type in the same spot again, if we have multiple
-                blackListEntry.push_back(piece.GetType());
+                blackListEntry.push_back(piece.type);
               }
             }
           }
@@ -630,6 +632,7 @@ private:
   }
 };
 
+} // unnamed namespace
 
 int main(int argc, char **argv) {
   // set up Ctrl-C handler
