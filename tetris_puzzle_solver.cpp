@@ -1,6 +1,7 @@
 #include "../hypervector/hypervector.h"
 
 #include <algorithm>
+#include <cassert>
 #include <csignal>
 #include <iostream>
 #include <limits>
@@ -291,7 +292,29 @@ std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &l
 // labeler for the empty blocks of the board that are yet to be filled
 class ConnectedComponentLabeler {
 private:
+  struct RegionOfInterest {
+    size_t left;
+    size_t right;
+    size_t top;
+    size_t bottom;
+
+    void Add(size_t x, size_t y) {
+      left = std::min(left, x);
+      right = std::max(right, x);
+      top = std::min(top, y);
+      bottom = std::max(bottom, y);
+    }
+
+    void Add(RegionOfInterest const &other) {
+      left = std::min(left, other.left);
+      right = std::max(right, other.right);
+      top = std::min(top, other.top);
+      bottom = std::max(bottom, other.bottom);
+    }
+  };
+
   struct ConnectedComponent {
+    RegionOfInterest roi;
     unsigned int size;
   };
 
@@ -299,13 +322,12 @@ public:
   ConnectedComponentLabeler(Board const &board)
     : m_labelImage(board.size(0), board.size(1), 0)
     , m_ccs() {
-    struct ConnectedComponentTemp {
+    struct ConnectedComponentTemp : ConnectedComponent {
       unsigned int parent;
-      unsigned int size;
 
-      ConnectedComponentTemp()
-        : parent(0)
-        , size(0) {
+      ConnectedComponentTemp(ConnectedComponent const &cc)
+        : ConnectedComponent(cc)
+        , parent(0) {
       }
     };
 
@@ -314,34 +336,43 @@ public:
 
     // method to assign new labels
     unsigned int nextLabel = 1;
-    auto newLabel = [&](unsigned int &current) {
+    auto newLabel = [&](unsigned int &current, size_t x, size_t y) {
       current = nextLabel++;
-      ++connectedComponents[current].size;
+      auto created = connectedComponents.insert(std::make_pair(current,
+        ConnectedComponent{
+          RegionOfInterest{x, x, y, y},
+          1
+        })).second;
+      assert(created);
     };
 
     // method to propagate labels
-    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor) {
+    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor, size_t x, size_t y) {
       current = neighbor;
-      ++connectedComponents[current].size;
+      auto &&cc = connectedComponents.at(current);
+      cc.roi.Add(x, y);
+      ++cc.size;
     };
 
     // method to unify labels
-    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above) {
+    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above, size_t x, size_t y) {
       current = left;
-      ++connectedComponents[left].size;
+      auto &&cc = connectedComponents.at(left);
+      cc.roi.Add(x, y);
+      ++cc.size;
       connectedComponents.at(above).parent = left;
     };
 
     // method to propagate, assign new or unify labels
-    auto label = [&](unsigned int &current, unsigned int left, unsigned int above) {
+    auto label = [&](unsigned int &current, unsigned int left, unsigned int above, size_t x, size_t y) {
       if((left != 0) && (above != 0) && (left != above)) {
-        unifyLabel(current, left, above);
+        unifyLabel(current, left, above, x, y);
       } else if(left != 0) {
-        propagateLabel(current, left);
+        propagateLabel(current, left, x, y);
       } else if(above != 0) {
-        propagateLabel(current, above);
+        propagateLabel(current, above, x, y);
       } else {
-        newLabel(current);
+        newLabel(current, x, y);
       }
 
       #ifdef DEBUG_CCL_STEPS
@@ -349,8 +380,10 @@ public:
           for(auto &&p : connectedComponents) {
             std::cout << " ["
               << Color::FromId(p.first) << colorReset
-              << " parent " << Color::FromId(p.second.parent) << colorReset
-              << " size " << p.second.size << "]";
+              << ": parent " << Color::FromId(p.second.parent) << colorReset
+              << ", width " << p.second.roi.right - p.second.roi.left + 1
+              << ", height " << p.second.roi.bottom - p.second.roi.top + 1
+              << ", size " << p.second.size << "]";
           }
           std::cout << std::endl;
       #endif
@@ -362,7 +395,7 @@ public:
       for(size_t x = 0; x < board.size(0); ++x) {
         unsigned int &current = m_labelImage.at(x, 0);
         if(board.IsBlockEmpty(x, 0)) {
-          label(current, left, 0);
+          label(current, left, 0, x, 0);
         }
         left = current;
       }
@@ -376,7 +409,7 @@ public:
           unsigned int &current = m_labelImage.at(x, y);
           if(board.IsBlockEmpty(x, y)) {
             unsigned int above = m_labelImage.at(x, y - 1);
-            label(current, left, above);
+            label(current, left, above, x, y);
           }
           left = current;
         }
@@ -409,11 +442,15 @@ public:
       }
     }
     for(auto &&p : connectedComponents) {
-      auto &&cc = p.second;
-      if(cc.parent == 0) {
-        m_ccs[p.first].size += cc.size;
+      auto &&from = p.second;
+      if(from.parent == 0) {
+        auto &&to = m_ccs[p.first];
+        to.roi.Add(from.roi);
+        to.size += from.size;
       } else {
-        m_ccs[cc.parent].size += cc.size;
+        auto &&to = m_ccs[from.parent];
+        to.roi.Add(from.roi);
+        to.size += from.size;
       }
     }
 
