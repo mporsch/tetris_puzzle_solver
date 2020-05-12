@@ -290,7 +290,13 @@ std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &l
 }
 
 // labeler for the empty blocks of the board that are yet to be filled
-class ConnectedComponentLabeler {
+struct ConnectedComponentLabeler {
+  struct SubBoard {
+    Board board;
+    size_t offsetX;
+    size_t offsetY;
+  };
+
 private:
   struct RegionOfInterest {
     size_t left;
@@ -468,18 +474,25 @@ public:
   }
 
   // get board where the minimum-size component's blocks are uncolored
-  Board GetMin() const {
-    Board board(m_labelImage.size(0), m_labelImage.size(1), Color::FromId(m_minLabel));
+  SubBoard GetMin() const {
+    auto &&cc = m_ccs.at(m_minLabel);
+    SubBoard sub{
+      Board(cc.roi.right - cc.roi.left + 1,
+            cc.roi.bottom - cc.roi.top + 1,
+            Color::FromId(m_minLabel)),
+      cc.roi.left,
+      cc.roi.top
+    };
 
-    for(size_t y = 0; y < m_labelImage.size(1); ++y) {
-      for(size_t x = 0; x < m_labelImage.size(0); ++x) {
-        if(m_labelImage.at(x, y) == m_minLabel) {
-          board.at(x, y) = Color();
+    for(size_t y = 0; y < sub.board.size(1); ++y) {
+      for(size_t x = 0; x < sub.board.size(0); ++x) {
+        if(m_labelImage.at(x + cc.roi.left, y + cc.roi.top) == m_minLabel) {
+          sub.board.at(x, y) = Color();
         }
       }
     }
 
-    return board;
+    return sub;
   }
 
 private:
@@ -545,26 +558,28 @@ struct Solver {
       return false;
     }
 
-    auto const subBoard = ccl.GetMin();
+    auto const sub = ccl.GetMin();
 
     for(ptrdiff_t piecesOrder = 0; piecesOrder < piecesCount; ++piecesOrder) {
       auto piece = *firstPiece;
       do {
-        for(size_t y = 0; y < subBoard.size(1); ++y) {
-          for(size_t x = 0; x < subBoard.size(0); ++x) {
-            auto &&blackListEntry = blackList.at(x, y);
-            bool isBlackListed = (end(blackListEntry) != std::find(
-              begin(blackListEntry), end(blackListEntry), piece.type));
-            if(!isBlackListed && subBoard.MayInsert(piece, x, y)) {
-              // next iteration with updated board and pieces list
-              if(Solve(board.Insert(piece, x, y),
-                       blackList,
-                       std::next(firstPiece),
-                       lastPiece)) {
-                return true;
-              } else {
-                // do not try the same type in the same spot again, if we have multiple
-                blackListEntry.push_back(piece.type);
+        for(size_t y = 0; y < sub.board.size(1); ++y) {
+          for(size_t x = 0; x < sub.board.size(0); ++x) {
+            if(sub.board.MayInsert(piece, x, y)) {
+              auto &&blackListEntry = blackList.at(x + sub.offsetX, y + sub.offsetY);
+              bool isBlackListed = (end(blackListEntry) != std::find(
+                begin(blackListEntry), end(blackListEntry), piece.type));
+              if(!isBlackListed) {
+                // next iteration with updated board and pieces list
+                if(Solve(board.Insert(piece, x + sub.offsetX, y + sub.offsetY),
+                         blackList,
+                         std::next(firstPiece),
+                         lastPiece)) {
+                  return true;
+                } else {
+                  // do not try the same type in the same spot again, if we have multiple
+                  blackListEntry.push_back(piece.type);
+                }
               }
             }
           }
