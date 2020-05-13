@@ -272,23 +272,6 @@ std::ostream &operator<<(std::ostream &os, Board const &board) {
 }
 
 
-std::ostream &operator<<(std::ostream &os, hypervector<unsigned int, 2> const &labelImage) {
-  for(size_t y = 0;; ++y) {
-    for(size_t x = 0; x < labelImage.size(0); ++x) {
-      auto const label = labelImage.at(x, y);
-      auto const color = (label == 0 ? Color() : Color::FromId(label));
-      os << color;
-    }
-    if(y < labelImage.size(1) - 1) {
-      os << colorReset << "\n";
-    } else {
-      break;
-    }
-  }
-  os << colorReset;
-  return os;
-}
-
 // labeler for the empty blocks of the board that are yet to be filled
 struct ConnectedComponentLabeler {
   struct SubBoard {
@@ -319,30 +302,38 @@ private:
     }
   };
 
+  using Label = unsigned int;
+  enum {
+    Unlabeled = 0
+  };
+
   struct ConnectedComponent {
     RegionOfInterest roi;
     unsigned int size;
   };
 
+  friend std::ostream &operator<<(
+      std::ostream &os,
+      hypervector<Label, 2> const &labelImage);
+
 public:
   ConnectedComponentLabeler(Board const &board)
-    : m_labelImage(board.size(0), board.size(1), 0)
+    : m_labelImage(board.size(0), board.size(1), Unlabeled)
     , m_ccs() {
     struct ConnectedComponentTemp : ConnectedComponent {
-      unsigned int parent;
+      Label parent;
 
       ConnectedComponentTemp(ConnectedComponent const &cc)
         : ConnectedComponent(cc)
-        , parent(0) {
+        , parent(Unlabeled) {
       }
     };
 
-    // map of label -> connected component
-    std::map<unsigned int, ConnectedComponentTemp> connectedComponents;
+    std::map<Label, ConnectedComponentTemp> connectedComponents;
 
     // method to assign new labels
-    unsigned int nextLabel = 1;
-    auto newLabel = [&](unsigned int &current, size_t x, size_t y) {
+    Label nextLabel = 1;
+    auto newLabel = [&](Label &current, size_t x, size_t y) {
       current = nextLabel++;
       auto created = connectedComponents.insert(std::make_pair(current,
         ConnectedComponent{
@@ -353,7 +344,7 @@ public:
     };
 
     // method to propagate labels
-    auto propagateLabel = [&](unsigned int &current, unsigned int neighbor, size_t x, size_t y) {
+    auto propagateLabel = [&](Label &current, Label neighbor, size_t x, size_t y) {
       current = neighbor;
       auto &&cc = connectedComponents.at(current);
       cc.roi.Add(x, y);
@@ -361,7 +352,7 @@ public:
     };
 
     // method to unify labels
-    auto unifyLabel = [&](unsigned int &current, unsigned int left, unsigned int above, size_t x, size_t y) {
+    auto unifyLabel = [&](Label &current, Label left, Label above, size_t x, size_t y) {
       current = left;
       auto &&cc = connectedComponents.at(left);
       cc.roi.Add(x, y);
@@ -370,12 +361,12 @@ public:
     };
 
     // method to propagate, assign new or unify labels
-    auto label = [&](unsigned int &current, unsigned int left, unsigned int above, size_t x, size_t y) {
-      if((left != 0) && (above != 0) && (left != above)) {
+    auto label = [&](Label &current, Label left, Label above, size_t x, size_t y) {
+      if((left != Unlabeled) && (above != Unlabeled) && (left != above)) {
         unifyLabel(current, left, above, x, y);
-      } else if(left != 0) {
+      } else if(left != Unlabeled) {
         propagateLabel(current, left, x, y);
-      } else if(above != 0) {
+      } else if(above != Unlabeled) {
         propagateLabel(current, above, x, y);
       } else {
         newLabel(current, x, y);
@@ -397,11 +388,11 @@ public:
 
     // first line
     {
-      unsigned int left = 0;
+      Label left = Unlabeled;
       for(size_t x = 0; x < board.size(0); ++x) {
-        unsigned int &current = m_labelImage.at(x, 0);
+        Label &current = m_labelImage.at(x, 0);
         if(board.IsBlockEmpty(x, 0)) {
-          label(current, left, 0, x, 0);
+          label(current, left, Unlabeled, x, 0);
         }
         left = current;
       }
@@ -410,11 +401,11 @@ public:
     // remaining board
     {
       for(size_t y = 1; y < board.size(1); ++y) {
-        unsigned int left = 0;
+        Label left = Unlabeled;
         for(size_t x = 0; x < board.size(0); ++x) {
-          unsigned int &current = m_labelImage.at(x, y);
+          Label &current = m_labelImage.at(x, y);
           if(board.IsBlockEmpty(x, y)) {
-            unsigned int above = m_labelImage.at(x, y - 1);
+            Label above = m_labelImage.at(x, y - 1);
             label(current, left, above, x, y);
           }
           left = current;
@@ -429,9 +420,9 @@ public:
     // aggregate results
     for(auto &&p : connectedComponents) {
       auto &&cc = p.second;
-      if(cc.parent != 0) {
+      if(cc.parent != Unlabeled) {
         auto const parentLabel = connectedComponents.at(cc.parent).parent;
-        if(parentLabel != 0) {
+        if(parentLabel != Unlabeled) {
           cc.parent = parentLabel;
         }
       }
@@ -439,9 +430,9 @@ public:
     for(size_t y = 0; y < board.size(1); ++y) {
       for(size_t x = 0; x < board.size(0); ++x) {
         auto &label = m_labelImage.at(x, y);
-        if(label != 0) {
+        if(label != Unlabeled) {
           auto const parentLabel = connectedComponents.at(label).parent;
-          if(parentLabel != 0) {
+          if(parentLabel != Unlabeled) {
             label = parentLabel;
           }
         }
@@ -449,7 +440,7 @@ public:
     }
     for(auto &&p : connectedComponents) {
       auto &&from = p.second;
-      if(from.parent == 0) {
+      if(from.parent == Unlabeled) {
         auto &&to = m_ccs[p.first];
         to.roi.Add(from.roi);
         to.size += from.size;
@@ -496,8 +487,8 @@ public:
   }
 
 private:
-  unsigned int GetMinLabel() const {
-    unsigned int minLabel = 0;
+  Label GetMinLabel() const {
+    Label minLabel = Unlabeled;
     auto minSize = std::numeric_limits<unsigned int>::max();
     for(auto &&p : m_ccs) {
       auto &&cc = p.second;
@@ -510,10 +501,29 @@ private:
   }
 
 private:
-  hypervector<unsigned int, 2> m_labelImage;
-  std::map<unsigned int, ConnectedComponent> m_ccs; // map of label -> connected component
-  unsigned int m_minLabel;
+  hypervector<Label, 2> m_labelImage;
+  std::map<Label, ConnectedComponent> m_ccs;
+  Label m_minLabel;
 };
+
+std::ostream &operator<<(
+    std::ostream &os,
+    hypervector<ConnectedComponentLabeler::Label, 2> const &labelImage) {
+  for(size_t y = 0;; ++y) {
+    for(size_t x = 0; x < labelImage.size(0); ++x) {
+      auto const label = labelImage.at(x, y);
+      auto const color = (label == ConnectedComponentLabeler::Unlabeled ? Color() : Color::FromId(label));
+      os << color;
+    }
+    if(y < labelImage.size(1) - 1) {
+      os << colorReset << "\n";
+    } else {
+      break;
+    }
+  }
+  os << colorReset;
+  return os;
+}
 
 
 struct Solver {
