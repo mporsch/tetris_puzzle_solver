@@ -1,4 +1,4 @@
-#include "../hypervector/hypervector.h"
+#include "hypervector.h"
 
 #include <algorithm>
 #include <cassert>

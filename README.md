@@ -7,5 +7,6 @@ Run e.g. with `$ ./tetris_puzzle_solver -w 8 -h 8 -T 4 -J 4 -L 1 -O 3 -Z 1 -S 1 
 
 ![example](https://user-images.githubusercontent.com/1180665/43682949-dc416838-9882-11e8-8023-d44b5392c0f3.png)
 
-Requires https://github.com/mporsch/hypervector repo checked out next to this one.
+Requires https://github.com/mporsch/hypervector.
+
 Build using CMake or `$ g++ -o tetris_puzzle_solver tetris_puzzle_solver.cpp -std=c++11` or using your favorite Windows compiler.
