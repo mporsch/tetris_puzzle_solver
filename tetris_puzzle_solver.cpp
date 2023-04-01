@@ -11,12 +11,6 @@
 #include <string>
 #include <vector>
 
-//#define DEBUG_BOARD_COLOR
-//#define DEBUG_SOLVER_STEPS
-//#define DEBUG_CCL_STEPS
-//#define DEBUG_CCL_AGGREGATION
-//#define DEBUG_SOLVABLE_CHECK
-
 namespace {
 
 static std::string const colorReset = "\x1B[0m";
