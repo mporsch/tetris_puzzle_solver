@@ -10,7 +10,14 @@ option(DEBUG_SOLVABLE_CHECK "" FALSE)
 
 find_package(hypervector REQUIRED)
 
-add_executable(tetris_puzzle_solver tetris_puzzle_solver.cpp)
+add_executable(tetris_puzzle_solver
+  tetris_puzzle_solver.cpp
+  board.h
+  ccl.h
+  color.h
+  piece.h
+  solver.h
+)
 target_compile_features(tetris_puzzle_solver PRIVATE cxx_std_11)
 target_compile_definitions(tetris_puzzle_solver PRIVATE
   $<$<BOOL:${DEBUG_BOARD_COLOR}>:DEBUG_BOARD_COLOR>
