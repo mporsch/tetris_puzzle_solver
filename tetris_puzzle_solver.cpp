@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
         << ", color " << color << colorReset << std::endl;
     }
   }
-  // restore board
+  // restore empty board
   board = Board(cmd.boardWidth, cmd.boardHeight);
 #endif
 

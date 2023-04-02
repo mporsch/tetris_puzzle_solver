@@ -2,6 +2,7 @@
 
 #include "board.h"
 #include "ccl.h"
+#include "piece.h"
 
 #include "hypervector.h"
 

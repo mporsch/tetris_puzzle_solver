@@ -8,7 +8,7 @@
 #include <cassert>
 #include <iostream>
 #include <limits>
-#include <map>
+#include <unordered_map>
 
 // labeler for the empty blocks of the board that are yet to be filled
 struct ConnectedComponentLabeler {
@@ -67,7 +67,7 @@ public:
       }
     };
 
-    std::map<Label, ConnectedComponentTemp> connectedComponents;
+    std::unordered_map<Label, ConnectedComponentTemp> connectedComponents;
 
     // method to assign new labels
     Label nextLabel = 1;
@@ -240,7 +240,7 @@ private:
 
 private:
   hypervector<Label, 2> m_labelImage;
-  std::map<Label, ConnectedComponent> m_ccs;
+  std::unordered_map<Label, ConnectedComponent> m_ccs;
   Label m_minLabel;
 };
 
