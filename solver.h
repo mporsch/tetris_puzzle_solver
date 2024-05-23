@@ -36,7 +36,7 @@ struct Solver {
       static unsigned long long iterationCount = 0;
       std::cout << board
         << " Solver: pieces remaining " << piecesCount
-        << ", iteration " << iterationCount++ << std::endl;
+        << ", iteration " << iterationCount++ << "\n\n";
 #endif
     }
 

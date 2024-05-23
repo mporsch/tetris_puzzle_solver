@@ -110,18 +110,18 @@ public:
         newLabel(current, x, y);
       }
 
-      #ifdef DEBUG_CCL_STEPS
-          std::cout << m_labelImage << " CCL:";
-          for(auto &&p : connectedComponents) {
-            std::cout << " ["
-              << Color::FromId(p.first) << colorReset
-              << ": parent " << Color::FromId(p.second.parent) << colorReset
-              << ", width " << p.second.roi.right - p.second.roi.left + 1
-              << ", height " << p.second.roi.bottom - p.second.roi.top + 1
-              << ", size " << p.second.size << "]";
-          }
-          std::cout << std::endl;
-      #endif
+#ifdef DEBUG_CCL_STEPS
+      std::cout << m_labelImage << " CCL:";
+      for(auto &&p : connectedComponents) {
+        std::cout << " ["
+          << Color::FromId(p.first) << colorReset
+          << ": parent " << Color::FromId(p.second.parent) << colorReset
+          << ", width " << p.second.roi.right - p.second.roi.left + 1
+          << ", height " << p.second.roi.bottom - p.second.roi.top + 1
+          << ", size " << p.second.size << "]";
+      }
+      std::cout << "\n\n";
+#endif
     };
 
     // first line
