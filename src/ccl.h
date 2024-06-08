@@ -56,7 +56,7 @@ private:
 
 public:
   ConnectedComponentLabeler(Board const &board)
-    : m_labelImage(board.size(0), board.size(1), Unlabeled)
+    : m_labelImage(board.sizeOf<0>(), board.sizeOf<1>(), Unlabeled)
     , m_ccs() {
     struct ConnectedComponentTemp : ConnectedComponent {
       Label parent;
@@ -127,7 +127,7 @@ public:
     // first line
     {
       Label left = Unlabeled;
-      for(size_t x = 0; x < board.size(0); ++x) {
+      for(size_t x = 0; x < board.sizeOf<0>(); ++x) {
         Label &current = m_labelImage.at(x, 0);
         if(board.IsBlockEmpty(x, 0)) {
           label(current, left, Unlabeled, x, 0);
@@ -138,9 +138,9 @@ public:
 
     // remaining board
     {
-      for(size_t y = 1; y < board.size(1); ++y) {
+      for(size_t y = 1; y < board.sizeOf<1>(); ++y) {
         Label left = Unlabeled;
-        for(size_t x = 0; x < board.size(0); ++x) {
+        for(size_t x = 0; x < board.sizeOf<0>(); ++x) {
           Label &current = m_labelImage.at(x, y);
           if(board.IsBlockEmpty(x, y)) {
             Label above = m_labelImage.at(x, y - 1);
@@ -165,8 +165,8 @@ public:
         }
       }
     }
-    for(size_t y = 0; y < board.size(1); ++y) {
-      for(size_t x = 0; x < board.size(0); ++x) {
+    for(size_t y = 0; y < board.sizeOf<1>(); ++y) {
+      for(size_t x = 0; x < board.sizeOf<0>(); ++x) {
         auto &label = m_labelImage.at(x, y);
         if(label != Unlabeled) {
           auto const parentLabel = connectedComponents.at(label).parent;
@@ -213,8 +213,8 @@ public:
       cc.roi.top
     };
 
-    for(size_t y = 0; y < sub.board.size(1); ++y) {
-      for(size_t x = 0; x < sub.board.size(0); ++x) {
+    for(size_t y = 0; y < sub.board.sizeOf<1>(); ++y) {
+      for(size_t x = 0; x < sub.board.sizeOf<0>(); ++x) {
         if(m_labelImage.at(x + cc.roi.left, y + cc.roi.top) == m_minLabel) {
           sub.board.at(x, y) = Color();
         }
@@ -248,12 +248,12 @@ std::ostream &operator<<(
     std::ostream &os,
     hypervector<ConnectedComponentLabeler::Label, 2> const &labelImage) {
   for(size_t y = 0;; ++y) {
-    for(size_t x = 0; x < labelImage.size(0); ++x) {
+    for(size_t x = 0; x < labelImage.sizeOf<0>(); ++x) {
       auto const label = labelImage.at(x, y);
       auto const color = (label == ConnectedComponentLabeler::Unlabeled ? Color() : Color::FromId(label));
       os << color;
     }
-    if(y < labelImage.size(1) - 1) {
+    if(y < labelImage.sizeOf<1>() - 1) {
       os << colorReset << "\n";
     } else {
       break;

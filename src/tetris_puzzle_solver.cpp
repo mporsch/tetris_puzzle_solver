@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 
     // run recursive solver
     if(!solver.Solve(std::move(board),
-                     Solver::BlackList(board.size(0), board.size(1)),
+                     Solver::BlackList(board.sizeOf<0>(), board.sizeOf<1>()),
                      begin(pieces),
                      end(pieces))) {
       std::cout << "No exact solution found\n";

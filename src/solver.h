@@ -57,8 +57,8 @@ struct Solver {
     for(ptrdiff_t piecesOrder = 0; piecesOrder < piecesCount; ++piecesOrder) {
       auto piece = *firstPiece;
       do {
-        for(size_t y = 0; y < sub.board.size(1); ++y) {
-          for(size_t x = 0; x < sub.board.size(0); ++x) {
+        for(size_t y = 0; y < sub.board.sizeOf<1>(); ++y) {
+          for(size_t x = 0; x < sub.board.sizeOf<0>(); ++x) {
             if(sub.board.MayInsert(piece, x, y)) {
               auto &&blackListEntry = blackList.at(x + sub.offsetX, y + sub.offsetY);
               bool isBlackListed = (end(blackListEntry) != std::find(

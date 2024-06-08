@@ -87,19 +87,19 @@ struct Piece : public hypervector<unsigned char, 2> {
     }
 
     // transpose
-    hypervector<unsigned char, 2> transposed(this->size(1), this->size(0));
-    for(size_t x = 0; x < this->size(0); ++x) {
-      for(size_t y = 0; y < this->size(1); ++y) {
+    hypervector<unsigned char, 2> transposed(this->sizeOf<1>(), this->sizeOf<0>());
+    for(size_t x = 0; x < this->sizeOf<0>(); ++x) {
+      for(size_t y = 0; y < this->sizeOf<1>(); ++y) {
         transposed.at(y, x) = this->at(x, y);
       }
     }
 
-    this->resize(this->size(1), this->size(0));
+    this->resize(this->sizeOf<1>(), this->sizeOf<0>());
 
     // mirror vertically
-    auto const offsetX = this->size(0) - 1;
-    for(size_t x = 0; x < this->size(0); ++x) {
-      for(size_t y = 0; y < this->size(1); ++y) {
+    auto const offsetX = this->sizeOf<0>() - 1;
+    for(size_t x = 0; x < this->sizeOf<0>(); ++x) {
+      for(size_t y = 0; y < this->sizeOf<1>(); ++y) {
         this->at(x, y) = transposed.at(offsetX - x, y);
       }
     }
