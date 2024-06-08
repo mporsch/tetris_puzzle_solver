@@ -8,15 +8,15 @@ option(DEBUG_CCL_STEPS "" FALSE)
 option(DEBUG_CCL_AGGREGATION "" FALSE)
 option(DEBUG_SOLVABLE_CHECK "" FALSE)
 
-find_package(hypervector REQUIRED)
+find_package(hypervector REQUIRED HINTS submodules/hypervector)
 
 add_executable(tetris_puzzle_solver
-  tetris_puzzle_solver.cpp
-  board.h
-  ccl.h
-  color.h
-  piece.h
-  solver.h
+  src/tetris_puzzle_solver.cpp
+  src/board.h
+  src/ccl.h
+  src/color.h
+  src/piece.h
+  src/solver.h
 )
 target_compile_features(tetris_puzzle_solver PRIVATE cxx_std_11)
 target_compile_definitions(tetris_puzzle_solver PRIVATE
