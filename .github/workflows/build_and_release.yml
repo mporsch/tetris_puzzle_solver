@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Windows latest MSVC"
+            os: windows-latest
+            c_compiler: cl
+            cpp_compiler: cl
+            build_type: Release
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: configure
+        run: >
+          cmake
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
+          -DCMAKE_BUILD_TYPE:STRING=${{ matrix.build_type }}
+          -B build
+          -S .
+      - name: build
+        run: cmake --build build --config ${{ matrix.build_type }}
+      - name: release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/${{ matrix.build_type }}/tetris_puzzle_solver.exe
